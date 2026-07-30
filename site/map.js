@@ -28,44 +28,55 @@ function webglAvailable() {
   }
 }
 
+const WEBGL_ERROR_MESSAGE =
+  "This map couldn't start because your browser blocked WebGL (hardware acceleration is disabled, " +
+  "sandboxed, or unsupported). It's a browser/system setting, not this site: in Chrome, check " +
+  "chrome://gpu and chrome://settings → System → \"Use graphics acceleration when available\", or " +
+  "try a different browser (Safari/Firefox).";
+
+let map = null;
+
 if (!webglAvailable()) {
-  showLoadError(
-    "This map needs WebGL, which your browser has disabled or doesn't support. " +
-      "Try a different browser, or check that hardware acceleration / WebGL isn't blocked by an extension or browser setting."
-  );
-  throw new Error("WebGL unavailable");
+  showLoadError(WEBGL_ERROR_MESSAGE);
+} else {
+  try {
+    map = new maplibregl.Map({
+      container: "map",
+      style: BASEMAP_STYLE,
+      center: TORONTO_CENTER,
+      zoom: 10.5,
+      minZoom: 9,
+      maxZoom: 18,
+    });
+  } catch (err) {
+    console.error("Failed to create MapLibre map:", err);
+    showLoadError(WEBGL_ERROR_MESSAGE);
+  }
 }
 
-const map = new maplibregl.Map({
-  container: "map",
-  style: BASEMAP_STYLE,
-  center: TORONTO_CENTER,
-  zoom: 10.5,
-  minZoom: 9,
-  maxZoom: 18,
-});
+if (map) {
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
-map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.on("error", (e) => {
+    console.error("MapLibre error:", e && e.error);
+    if (!mapLoaded) {
+      showLoadError(
+        "The basemap failed to load -- this is usually a network issue or an ad blocker / privacy " +
+          "extension blocking the map tile server. Try disabling extensions for this site or a different network."
+      );
+    }
+  });
 
-map.on("error", (e) => {
-  console.error("MapLibre error:", e && e.error);
-  if (!mapLoaded) {
-    showLoadError(
-      "The basemap failed to load -- this is usually a network issue or an ad blocker / privacy " +
-        "extension blocking the map tile server. Try disabling extensions for this site or a different network."
-    );
-  }
-});
-
-setTimeout(() => {
-  if (!mapLoaded) {
-    showLoadError(
-      "The map is taking much longer than expected to load. This usually means the basemap tiles or " +
-        "data files are being blocked (by an ad blocker, privacy extension, or restrictive network) rather " +
-        "than just being slow. Try a different browser/network, or check the browser console for details."
-    );
-  }
-}, LOAD_TIMEOUT_MS);
+  setTimeout(() => {
+    if (!mapLoaded) {
+      showLoadError(
+        "The map is taking much longer than expected to load. This usually means the basemap tiles or " +
+          "data files are being blocked (by an ad blocker, privacy extension, or restrictive network) rather " +
+          "than just being slow. Try a different browser/network, or check the browser console for details."
+      );
+    }
+  }, LOAD_TIMEOUT_MS);
+}
 
 function formatCompact(n) {
   if (n === null || n === undefined) return "–";
@@ -179,9 +190,10 @@ function setupFilters() {
   applyFilter();
 }
 
-map.on("load", async () => {
-  mapLoaded = true;
-  try {
+if (map) {
+  map.on("load", async () => {
+    mapLoaded = true;
+    try {
     const [summary, wards, permits] = await Promise.all([
       loadJSON("data/summary.json"),
       loadJSON("data/wards.geojson"),
@@ -291,4 +303,5 @@ map.on("load", async () => {
       "Couldn't load permit data. If this is a fresh deploy, the daily pipeline may not have run yet."
     );
   }
-});
+  });
+}
