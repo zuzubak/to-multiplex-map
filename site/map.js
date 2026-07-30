@@ -1,7 +1,40 @@
 const BASEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const TORONTO_CENTER = [-79.3832, 43.6532];
+const LOAD_TIMEOUT_MS = 15000;
 
 const SEQUENTIAL_RAMP = ["#cde2fb", "#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"];
+
+let errorShown = false;
+let mapLoaded = false;
+
+function showLoadError(message) {
+  if (errorShown) return;
+  errorShown = true;
+  const el = document.createElement("div");
+  el.className = "load-error";
+  el.textContent = message;
+  document.querySelector("main").appendChild(el);
+}
+
+function webglAvailable() {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+if (!webglAvailable()) {
+  showLoadError(
+    "This map needs WebGL, which your browser has disabled or doesn't support. " +
+      "Try a different browser, or check that hardware acceleration / WebGL isn't blocked by an extension or browser setting."
+  );
+  throw new Error("WebGL unavailable");
+}
 
 const map = new maplibregl.Map({
   container: "map",
@@ -14,12 +47,25 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
-function showLoadError(message) {
-  const el = document.createElement("div");
-  el.className = "load-error";
-  el.textContent = message;
-  document.querySelector("main").appendChild(el);
-}
+map.on("error", (e) => {
+  console.error("MapLibre error:", e && e.error);
+  if (!mapLoaded) {
+    showLoadError(
+      "The basemap failed to load -- this is usually a network issue or an ad blocker / privacy " +
+        "extension blocking the map tile server. Try disabling extensions for this site or a different network."
+    );
+  }
+});
+
+setTimeout(() => {
+  if (!mapLoaded) {
+    showLoadError(
+      "The map is taking much longer than expected to load. This usually means the basemap tiles or " +
+        "data files are being blocked (by an ad blocker, privacy extension, or restrictive network) rather " +
+        "than just being slow. Try a different browser/network, or check the browser console for details."
+    );
+  }
+}, LOAD_TIMEOUT_MS);
 
 function formatCompact(n) {
   if (n === null || n === undefined) return "–";
@@ -134,6 +180,7 @@ function setupFilters() {
 }
 
 map.on("load", async () => {
+  mapLoaded = true;
   try {
     const [summary, wards, permits] = await Promise.all([
       loadJSON("data/summary.json"),
