@@ -4,9 +4,15 @@ on:
   schedule:
     - cron: "0 11 * * *"  # ~06:00-07:00 America/Toronto, daily
   workflow_dispatch: {}
+  push:
+    branches: [master]
 
 permissions:
   contents: write
+
+concurrency:
+  group: refresh-and-deploy
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -44,3 +50,27 @@ jobs:
           git add site/data
           git diff --cached --quiet || git commit -m "Refresh multiplex permit data"
           git push
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
