@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Toronto Multiplex Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Toronto Multiplex Tracker</h1>
+    <span class="subtitle" id="last-updated">Loading&hellip;</span>
+
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="filter-row">
+    <button class="filter-chip" id="filter-active" data-active="true">
+      <span class="swatch" style="background: var(--series-active)"></span>
+      Active permits
+    </button>
+    <button class="filter-chip" id="filter-cleared" data-active="true">
+      <span class="swatch" style="background: var(--series-cleared)"></span>
+      Cleared permits
+    </button>
+  </div>
+
+  <main>
+    <div id="map"></div>
+    <div class="legend">
+      <h2>New units by ward</h2>
+      <div class="legend-gradient"></div>
+      <div class="legend-scale">
+        <span>0</span>
+        <span id="legend-max">&ndash;</span>
+      </div>
+      <hr>
+      <h2>Permit points</h2>
+      <div class="legend-row">
+        <span class="swatch" style="background: var(--series-active)"></span>
+        <span>Active (in progress)</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background: var(--series-cleared)"></span>
+        <span>Cleared (completed)</span>
+      </div>
+      <div class="legend-row">
+        <span style="color: var(--text-muted)">Point size &asymp; units created</span>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>

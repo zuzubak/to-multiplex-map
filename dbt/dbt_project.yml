@@ -1,0 +1,11 @@
+name: 'to_multiplex_map'
+version: '1.0.0'
+config-version: 2
+
+profile: 'to_multiplex_map'
+
+model-paths: ["models"]
+
+models:
+  to_multiplex_map:
+    +materialized: table

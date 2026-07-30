@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: main
+    tables:
+      - name: cleared_permits
+        identifier: raw_cleared_permits
+      - name: active_permits
+        identifier: raw_active_permits
+      - name: address_points
+        identifier: raw_address_points
+      - name: city_wards
+        identifier: raw_city_wards

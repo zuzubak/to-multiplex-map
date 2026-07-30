@@ -1,0 +1,46 @@
+name: Refresh multiplex data
+
+on:
+  schedule:
+    - cron: "0 11 * * *"  # ~06:00-07:00 America/Toronto, daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch permits (cleared + active)
+        working-directory: ingest
+        run: python fetch_permits.py
+
+      - name: Fetch reference data (address points + wards)
+        working-directory: ingest
+        run: python fetch_reference.py
+
+      - name: dbt build
+        working-directory: dbt
+        run: dbt build --profiles-dir .
+
+      - name: Export GeoJSON for the map
+        working-directory: export
+        run: python export_geojson.py
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/data
+          git diff --cached --quiet || git commit -m "Refresh multiplex permit data"
+          git push
