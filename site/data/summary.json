@@ -1,15 +1,15 @@
 {
-  "last_updated": "2026-07-30T20:23:09+00:00",
+  "last_updated": "2026-07-30T21:01:09+00:00",
   "totals_by_status": [
-    {
-      "status": "cleared",
-      "permit_count": 4014,
-      "dwelling_units_created": 5147
-    },
     {
       "status": "active",
       "permit_count": 3800,
       "dwelling_units_created": 6241
+    },
+    {
+      "status": "cleared",
+      "permit_count": 4014,
+      "dwelling_units_created": 5147
     }
   ],
   "unmatched_address_count": 137,
