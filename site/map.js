@@ -1,11 +1,16 @@
-const BASEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-const TORONTO_CENTER = [-79.3832, 43.6532];
-const LOAD_TIMEOUT_MS = 15000;
+// Leaflet + raster tiles + Canvas/SVG markers -- deliberately avoids WebGL (MapLibre GL JS
+// requires it) so the map renders in any browser, including ones with hardware acceleration
+// disabled or sandboxed (the exact failure this replaced: MapLibre's WebGL context creation
+// throwing on a Chrome install with GPU disabled).
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
+  '&copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TORONTO_CENTER = [43.6532, -79.3832];
 
 const SEQUENTIAL_RAMP = ["#cde2fb", "#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"];
 
 let errorShown = false;
-let mapLoaded = false;
 
 function showLoadError(message) {
   if (errorShown) return;
@@ -14,68 +19,6 @@ function showLoadError(message) {
   el.className = "load-error";
   el.textContent = message;
   document.querySelector("main").appendChild(el);
-}
-
-function webglAvailable() {
-  try {
-    const canvas = document.createElement("canvas");
-    return !!(
-      window.WebGLRenderingContext &&
-      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
-    );
-  } catch (e) {
-    return false;
-  }
-}
-
-const WEBGL_ERROR_MESSAGE =
-  "This map couldn't start because your browser blocked WebGL (hardware acceleration is disabled, " +
-  "sandboxed, or unsupported). It's a browser/system setting, not this site: in Chrome, check " +
-  "chrome://gpu and chrome://settings → System → \"Use graphics acceleration when available\", or " +
-  "try a different browser (Safari/Firefox).";
-
-let map = null;
-
-if (!webglAvailable()) {
-  showLoadError(WEBGL_ERROR_MESSAGE);
-} else {
-  try {
-    map = new maplibregl.Map({
-      container: "map",
-      style: BASEMAP_STYLE,
-      center: TORONTO_CENTER,
-      zoom: 10.5,
-      minZoom: 9,
-      maxZoom: 18,
-    });
-  } catch (err) {
-    console.error("Failed to create MapLibre map:", err);
-    showLoadError(WEBGL_ERROR_MESSAGE);
-  }
-}
-
-if (map) {
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-
-  map.on("error", (e) => {
-    console.error("MapLibre error:", e && e.error);
-    if (!mapLoaded) {
-      showLoadError(
-        "The basemap failed to load -- this is usually a network issue or an ad blocker / privacy " +
-          "extension blocking the map tile server. Try disabling extensions for this site or a different network."
-      );
-    }
-  });
-
-  setTimeout(() => {
-    if (!mapLoaded) {
-      showLoadError(
-        "The map is taking much longer than expected to load. This usually means the basemap tiles or " +
-          "data files are being blocked (by an ad blocker, privacy extension, or restrictive network) rather " +
-          "than just being slow. Try a different browser/network, or check the browser console for details."
-      );
-    }
-  }, LOAD_TIMEOUT_MS);
 }
 
 function formatCompact(n) {
@@ -166,18 +109,112 @@ async function loadJSON(path) {
   return resp.json();
 }
 
+function quantile(sorted, q) {
+  const idx = (sorted.length - 1) * q;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+// Discrete quantile bins (not a continuous gradient) so the legend can show exact ranges.
+function computeBins(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const thresholds = [0, 0.2, 0.4, 0.6, 0.8].map((q) => quantile(sorted, q));
+  for (let i = 1; i < thresholds.length; i++) {
+    if (thresholds[i] <= thresholds[i - 1]) thresholds[i] = thresholds[i - 1] + 1;
+  }
+  return thresholds;
+}
+
+function colorForValue(value, thresholds) {
+  for (let i = thresholds.length - 1; i >= 0; i--) {
+    if (value >= thresholds[i]) return SEQUENTIAL_RAMP[i];
+  }
+  return SEQUENTIAL_RAMP[0];
+}
+
+function renderWardBinsLegend(thresholds, maxValue) {
+  const container = document.getElementById("ward-bins");
+  container.textContent = "";
+  const edges = [...thresholds, maxValue];
+
+  for (let i = 0; i < thresholds.length; i++) {
+    const row = document.createElement("div");
+    row.className = "ward-bin-row";
+
+    const swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.background = SEQUENTIAL_RAMP[i];
+
+    const label = document.createElement("span");
+    const lo = formatCompact(Math.round(edges[i]));
+    const hi = i === thresholds.length - 1 ? formatCompact(Math.round(edges[i + 1])) : formatCompact(Math.round(edges[i + 1] - 1));
+    label.textContent = i === thresholds.length - 1 ? `${lo}+` : `${lo}–${hi}`;
+
+    row.append(swatch, label);
+    container.appendChild(row);
+  }
+}
+
+function radiusForUnits(units) {
+  const points = [
+    [1, 5],
+    [4, 9],
+    [8, 13],
+  ];
+  if (units <= points[0][0]) return points[0][1];
+  if (units >= points[points.length - 1][0]) return points[points.length - 1][1];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [u0, r0] = points[i];
+    const [u1, r1] = points[i + 1];
+    if (units >= u0 && units <= u1) {
+      const t = (units - u0) / (u1 - u0);
+      return r0 + (r1 - r0) * t;
+    }
+  }
+  return points[0][1];
+}
+
+const map = L.map("map", {
+  center: TORONTO_CENTER,
+  zoom: 10.5,
+  minZoom: 9,
+  maxZoom: 19,
+  preferCanvas: true,
+  zoomControl: false,
+});
+
+L.tileLayer(TILE_URL, {
+  subdomains: "abcd",
+  maxZoom: 19,
+  attribution: TILE_ATTRIBUTION,
+}).addTo(map);
+
+L.control.zoom({ position: "topright" }).addTo(map);
+
+let permitsLayer = null;
+
 function setupFilters() {
   const chips = [document.getElementById("filter-active"), document.getElementById("filter-cleared")];
   const statusForChip = { "filter-active": "active", "filter-cleared": "cleared" };
 
   function applyFilter() {
-    const activeStatuses = chips
-      .filter((chip) => chip.dataset.active === "true")
-      .map((chip) => statusForChip[chip.id]);
-
-    if (map.getLayer("permits-points")) {
-      map.setFilter("permits-points", ["in", ["get", "status"], ["literal", activeStatuses]]);
-    }
+    if (!permitsLayer) return;
+    const activeStatuses = new Set(
+      chips.filter((chip) => chip.dataset.active === "true").map((chip) => statusForChip[chip.id])
+    );
+    permitsLayer.eachLayer((layer) => {
+      const show = activeStatuses.has(layer.feature.properties.status);
+      const el = layer.getElement ? layer.getElement() : null;
+      if (el) {
+        el.style.display = show ? "" : "none";
+      } else if (show) {
+        map.addLayer(layer);
+      } else {
+        map.removeLayer(layer);
+      }
+    });
   }
 
   for (const chip of chips) {
@@ -190,10 +227,8 @@ function setupFilters() {
   applyFilter();
 }
 
-if (map) {
-  map.on("load", async () => {
-    mapLoaded = true;
-    try {
+async function init() {
+  try {
     const [summary, wards, permits] = await Promise.all([
       loadJSON("data/summary.json"),
       loadJSON("data/wards.geojson"),
@@ -202,106 +237,45 @@ if (map) {
 
     renderStats(summary);
 
-    const wardUnitValues = wards.features
-      .map((f) => f.properties.total_dwelling_units_created || 0)
-      .sort((a, b) => a - b);
+    const wardUnitValues = wards.features.map((f) => f.properties.total_dwelling_units_created || 0);
     const maxUnits = Math.max(1, ...wardUnitValues);
-    document.getElementById("legend-max").textContent = formatCompact(maxUnits);
+    const thresholds = computeBins(wardUnitValues);
+    renderWardBinsLegend(thresholds, maxUnits);
 
-    // Quantile breaks (not evenly-spaced fractions of max) so wards spread across the
-    // full ramp instead of clustering in its pale end.
-    function quantile(sorted, q) {
-      const idx = (sorted.length - 1) * q;
-      const lo = Math.floor(idx);
-      const hi = Math.ceil(idx);
-      if (lo === hi) return sorted[lo];
-      return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
-    }
-    const breaks = [0, 0.2, 0.4, 0.6, 0.8, 1].map((q) => quantile(wardUnitValues, q));
-    // MapLibre requires strictly ascending stops -- nudge any ties forward.
-    for (let i = 1; i < breaks.length; i++) {
-      if (breaks[i] <= breaks[i - 1]) breaks[i] = breaks[i - 1] + 0.01;
-    }
+    L.geoJSON(wards, {
+      style: (feature) => ({
+        fillColor: colorForValue(feature.properties.total_dwelling_units_created || 0, thresholds),
+        fillOpacity: 0.55,
+        color: "#c3c2b7",
+        weight: 1,
+      }),
+    }).addTo(map);
 
-    map.addSource("wards", { type: "geojson", data: wards });
-    map.addLayer({
-      id: "wards-fill",
-      type: "fill",
-      source: "wards",
-      paint: {
-        "fill-color": [
-          "interpolate",
-          ["linear"],
-          ["get", "total_dwelling_units_created"],
-          breaks[0], SEQUENTIAL_RAMP[0],
-          breaks[1], SEQUENTIAL_RAMP[1],
-          breaks[2], SEQUENTIAL_RAMP[2],
-          breaks[3], SEQUENTIAL_RAMP[3],
-          breaks[4], SEQUENTIAL_RAMP[4],
-          breaks[5], SEQUENTIAL_RAMP[5],
-        ],
-        "fill-opacity": 0.55,
+    permitsLayer = L.geoJSON(permits, {
+      pointToLayer: (feature, latlng) => {
+        const status = feature.properties.status;
+        const color = status === "active" ? "#eb6834" : status === "cleared" ? "#2a78d6" : "#898781";
+        const units = feature.properties.dwelling_units_created || 1;
+        return L.circleMarker(latlng, {
+          radius: radiusForUnits(units),
+          fillColor: color,
+          fillOpacity: 0.9,
+          color: "#fcfcfb",
+          weight: 2,
+        });
       },
-    });
-    map.addLayer({
-      id: "wards-outline",
-      type: "line",
-      source: "wards",
-      paint: {
-        "line-color": "#c3c2b7",
-        "line-width": 1,
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(() => popupContent(feature.properties));
       },
-    });
-
-    map.addSource("permits", { type: "geojson", data: permits });
-    map.addLayer({
-      id: "permits-points",
-      type: "circle",
-      source: "permits",
-      paint: {
-        "circle-color": [
-          "match",
-          ["get", "status"],
-          "active", "#eb6834",
-          "cleared", "#2a78d6",
-          "#898781",
-        ],
-        "circle-radius": [
-          "interpolate",
-          ["linear"],
-          ["coalesce", ["get", "dwelling_units_created"], 1],
-          1, 5,
-          4, 9,
-          8, 13,
-        ],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#fcfcfb",
-        "circle-opacity": 0.9,
-      },
-    });
+    }).addTo(map);
 
     setupFilters();
-
-    const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: "260px" });
-
-    map.on("click", "permits-points", (e) => {
-      const feature = e.features[0];
-      popup
-        .setLngLat(feature.geometry.coordinates)
-        .setDOMContent(popupContent(feature.properties))
-        .addTo(map);
-    });
-    map.on("mouseenter", "permits-points", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "permits-points", () => {
-      map.getCanvas().style.cursor = "";
-    });
   } catch (err) {
     console.error(err);
     showLoadError(
       "Couldn't load permit data. If this is a fresh deploy, the daily pipeline may not have run yet."
     );
   }
-  });
 }
+
+init();

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Toronto Multiplex Tracker</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,11 +30,7 @@
     <div id="map"></div>
     <div class="legend">
       <h2>New units by ward</h2>
-      <div class="legend-gradient"></div>
-      <div class="legend-scale">
-        <span>0</span>
-        <span id="legend-max">&ndash;</span>
-      </div>
+      <div id="ward-bins"></div>
       <hr>
       <h2>Permit points</h2>
       <div class="legend-row">
@@ -51,7 +47,7 @@
     </div>
   </main>
 
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="map.js"></script>
 </body>
 </html>

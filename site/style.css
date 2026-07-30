@@ -150,7 +150,7 @@ main {
   position: absolute;
   left: 12px;
   bottom: 24px;
-  z-index: 1;
+  z-index: 1000;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -183,18 +183,19 @@ main {
   flex: none;
 }
 
-.legend-gradient {
-  height: 10px;
-  border-radius: 3px;
-  background: linear-gradient(to right, var(--seq-100), var(--seq-200), var(--seq-350), var(--seq-450), var(--seq-550), var(--seq-700));
-  margin: 6px 0 4px;
+.ward-bin-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+  font-size: 11px;
 }
 
-.legend-scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-muted);
+.ward-bin-row .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex: none;
 }
 
 .legend hr {
@@ -203,13 +204,20 @@ main {
   margin: 8px 0;
 }
 
-.maplibregl-popup-content {
+.leaflet-popup-content-wrapper {
   background: var(--surface-1);
   color: var(--text-primary);
+  border-radius: 6px;
+}
+
+.leaflet-popup-tip {
+  background: var(--surface-1);
+}
+
+.leaflet-popup-content {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 12px;
-  padding: 10px 12px;
-  border-radius: 6px;
+  margin: 10px 12px;
 }
 
 .popup-title {
@@ -237,6 +245,7 @@ main {
 .load-error {
   position: absolute;
   inset: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
