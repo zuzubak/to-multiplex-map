@@ -1,3 +1,4 @@
+-- One row per permit_num: see stg_cleared_permits.sql for why (revision dedup).
 select
     permit_num as permit_num,
     revision_num as revision_num,
@@ -20,5 +21,10 @@ select
     proposed_use as proposed_use,
     dwelling_units_created as dwelling_units_created,
     dwelling_units_lost as dwelling_units_lost,
+    residential as residential_area,
     'active' as source_status
 from {{ source('raw', 'active_permits') }}
+qualify row_number() over (
+    partition by permit_num
+    order by try_cast(revision_num as integer) desc
+) = 1

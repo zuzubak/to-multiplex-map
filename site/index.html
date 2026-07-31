@@ -15,23 +15,64 @@
     <div class="stats" id="stats"></div>
   </header>
 
-  <div class="filter-row">
-    <button class="filter-chip" id="filter-active" data-active="true">
-      <span class="swatch" style="background: var(--series-active)"></span>
-      Active permits
-    </button>
-    <button class="filter-chip" id="filter-cleared" data-active="true">
-      <span class="swatch" style="background: var(--series-cleared)"></span>
-      Cleared permits
-    </button>
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="filter-group-label">Layers</span>
+      <button class="filter-chip" id="layer-wards" data-active="true" data-group="layer">
+        Wards
+      </button>
+      <button class="filter-chip" id="layer-active" data-active="true" data-group="layer">
+        <span class="swatch" style="background: var(--series-active)"></span>
+        Active permits
+      </button>
+      <button class="filter-chip" id="layer-cleared" data-active="true" data-group="layer">
+        <span class="swatch" style="background: var(--series-cleared)"></span>
+        Cleared permits
+      </button>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-group-label">Street type</span>
+      <button class="filter-chip" data-active="true" data-group="road-class" data-value="major">Major</button>
+      <button class="filter-chip" data-active="true" data-group="road-class" data-value="minor">Minor</button>
+      <button class="filter-chip" data-active="true" data-group="road-class" data-value="unknown">Unknown</button>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-group-label">Structure type</span>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Laneway / garden suite">Laneway / garden suite</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Duplex (2 units)">Duplex</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Triplex / fourplex (3-4 units)">Triplex / fourplex</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-unit building">Multi-unit building</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-tenant / rooming house">Multi-tenant / rooming house</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Mixed use">Mixed use</button>
+      <button class="filter-chip" data-active="true" data-group="structure" data-value="Other">Other</button>
+    </div>
+
+    <div class="date-filter">
+      <div class="filter-group-label">Application date</div>
+      <div class="histogram" id="histogram"></div>
+      <div class="range-slider" id="range-slider">
+        <div class="range-track"></div>
+        <div class="range-fill" id="range-fill"></div>
+        <input type="range" id="range-min" class="range-input">
+        <input type="range" id="range-max" class="range-input">
+      </div>
+      <div class="range-labels">
+        <span id="range-label-min"></span>
+        <span id="range-label-max"></span>
+      </div>
+    </div>
   </div>
 
   <main>
     <div id="map"></div>
     <div class="legend">
-      <h2>New units by ward</h2>
-      <div id="ward-bins"></div>
-      <hr>
+      <div id="ward-legend-section">
+        <h2>Net new units by ward</h2>
+        <div id="ward-bins"></div>
+        <hr>
+      </div>
       <h2>Permit points</h2>
       <div class="legend-row">
         <span class="swatch" style="background: var(--series-active)"></span>
@@ -42,7 +83,7 @@
         <span>Cleared (completed)</span>
       </div>
       <div class="legend-row">
-        <span style="color: var(--text-muted)">Point size &asymp; units created</span>
+        <span style="color: var(--text-muted)">Point size &asymp; net units created</span>
       </div>
     </div>
   </main>

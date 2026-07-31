@@ -22,9 +22,13 @@ def build_permits_geojson(con: duckdb.DuckDBPyConnection) -> tuple[dict, int]:
             permit_num,
             status,
             structure_type,
+            structure_category,
+            road_class,
             proposed_use,
             description,
             dwelling_units_created,
+            nullif(dwelling_units_lost, 0) as dwelling_units_lost,
+            net_units_created,
             unit_bucket,
             full_address,
             ward,
@@ -55,26 +59,16 @@ def build_permits_geojson(con: duckdb.DuckDBPyConnection) -> tuple[dict, int]:
 
 
 def build_wards_geojson(con: duckdb.DuckDBPyConnection) -> dict:
+    # Geometry + identifiers only -- per-ward counts are now computed client-side from
+    # the currently-filtered permits.geojson, so every filter (layers, street/structure
+    # type, date range) scopes the choropleth too, not just a fixed dbt-time total.
     rows = con.execute(
         """
-        with ward_stats as (
-            select
-                ward,
-                sum(case when status = 'cleared' then permit_count else 0 end) as cleared_permit_count,
-                sum(case when status = 'active' then permit_count else 0 end) as active_permit_count,
-                sum(dwelling_units_created) as total_dwelling_units_created
-            from multiplex_by_ward
-            group by ward
-        )
         select
-            w.ward_code,
-            w.ward_name,
-            coalesce(s.cleared_permit_count, 0) as cleared_permit_count,
-            coalesce(s.active_permit_count, 0) as active_permit_count,
-            coalesce(s.total_dwelling_units_created, 0) as total_dwelling_units_created,
-            st_asgeojson(w.geom) as geometry_json
-        from stg_city_wards w
-        left join ward_stats s on w.ward_name = s.ward
+            ward_code,
+            ward_name,
+            st_asgeojson(geom) as geometry_json
+        from stg_city_wards
         """
     ).fetchall()
     columns = [d[0] for d in con.description]
@@ -94,7 +88,7 @@ def build_summary(con: duckdb.DuckDBPyConnection, unmatched: int) -> dict:
         select
             status,
             count(*) as permit_count,
-            sum(dwelling_units_created) as dwelling_units_created
+            sum(net_units_created) as net_units_created
         from multiplex_permits
         group by status
         """
@@ -110,7 +104,7 @@ def build_summary(con: duckdb.DuckDBPyConnection, unmatched: int) -> dict:
     return {
         "last_updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "totals_by_status": [
-            {"status": status, "permit_count": permit_count, "dwelling_units_created": units}
+            {"status": status, "permit_count": permit_count, "net_units_created": units}
             for status, permit_count, units in totals
         ],
         "unmatched_address_count": unmatched,

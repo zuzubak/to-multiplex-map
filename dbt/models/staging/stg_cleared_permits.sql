@@ -1,3 +1,5 @@
+-- One row per permit_num: the source data carries one row per revision, so keep only
+-- the latest revision (highest revision_num) to avoid double/triple counting a permit.
 select
     permit_num as permit_num,
     revision_num as revision_num,
@@ -20,5 +22,10 @@ select
     proposed_use as proposed_use,
     dwelling_units_created as dwelling_units_created,
     dwelling_units_lost as dwelling_units_lost,
+    residential as residential_area,
     'cleared' as source_status
 from {{ source('raw', 'cleared_permits') }}
+qualify row_number() over (
+    partition by permit_num
+    order by try_cast(revision_num as integer) desc
+) = 1

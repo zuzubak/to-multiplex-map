@@ -12,3 +12,5 @@ sources:
         identifier: raw_address_points
       - name: city_wards
         identifier: raw_city_wards
+      - name: centreline
+        identifier: raw_centreline

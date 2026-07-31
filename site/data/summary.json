@@ -1,18 +1,18 @@
 {
-  "last_updated": "2026-07-30T20:23:09+00:00",
+  "last_updated": "2026-07-31T00:18:56+00:00",
   "totals_by_status": [
     {
-      "status": "cleared",
-      "permit_count": 4014,
-      "dwelling_units_created": 5147
+      "status": "active",
+      "permit_count": 2936,
+      "net_units_created": 4743
     },
     {
-      "status": "active",
-      "permit_count": 3800,
-      "dwelling_units_created": 6241
+      "status": "cleared",
+      "permit_count": 3222,
+      "net_units_created": 4033
     }
   ],
-  "unmatched_address_count": 137,
+  "unmatched_address_count": 113,
   "earliest_application_date": "2022-01-01",
   "latest_application_date": "2026-07-28"
 }
