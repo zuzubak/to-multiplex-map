@@ -45,45 +45,66 @@ html, body {
   background: var(--page-plane);
   color: var(--text-primary);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  overscroll-behavior: none;
 }
 
-body {
+/* ---- App shell: map + sidebar on desktop, map + bottom sheet on mobile ---- */
+
+.app {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+}
+
+#map-pane {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  flex: 0 0 380px;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }
 
-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 24px;
-  padding: 12px 20px;
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
-  z-index: 2;
+.panel-drag-handle {
+  display: none;
 }
 
-header h1 {
+.panel-scroll {
+  padding: 16px 20px 28px;
+}
+
+.panel-header h1 {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
-  white-space: nowrap;
 }
 
-header .subtitle {
+.panel-header .subtitle {
   font-size: 12px;
   color: var(--text-muted);
-  white-space: nowrap;
 }
 
 .stats {
   display: flex;
-  gap: 20px;
-  margin-left: auto;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 10px;
 }
 
 .stat-tile {
-  text-align: right;
+  text-align: left;
 }
 
 .stat-tile .stat-value {
@@ -99,12 +120,12 @@ header .subtitle {
 
 .filter-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 16px 28px;
-  padding: 12px 20px;
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .filter-group {
@@ -153,7 +174,7 @@ header .subtitle {
 }
 
 .date-filter {
-  flex: 1 1 100%;
+  align-self: stretch;
 }
 
 .histogram {
@@ -261,30 +282,12 @@ header .subtitle {
   margin-top: 4px;
 }
 
-main {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
-
-#map {
-  position: absolute;
-  inset: 0;
-}
-
 .legend {
-  position: absolute;
-  left: 12px;
-  bottom: 24px;
-  z-index: 1000;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-secondary);
-  max-width: 220px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .legend h2 {
@@ -379,4 +382,74 @@ main {
   font-size: 13px;
   text-align: center;
   padding: 20px;
+}
+
+/* ---- Mobile: full-screen map, bottom sheet for stats/filters ---- */
+
+@media (max-width: 860px) {
+  .app {
+    display: block;
+    height: 100vh;
+  }
+
+  #map-pane {
+    position: fixed;
+    inset: 0;
+  }
+
+  .panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    flex: none;
+    height: auto;
+    max-height: 42vh;
+    overflow-y: auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
+    transition: max-height 220ms ease;
+  }
+
+  .panel.expanded {
+    max-height: 82vh;
+  }
+
+  .panel-drag-handle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 0 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font: inherit;
+    position: sticky;
+    top: 0;
+    background: var(--surface-1);
+  }
+
+  .handle-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--gridline);
+  }
+
+  .handle-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+
+  .panel.expanded .handle-label::after {
+    content: " (tap to collapse)";
+  }
 }

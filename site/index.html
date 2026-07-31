@@ -8,85 +8,96 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Toronto Multiplex Tracker</h1>
-    <span class="subtitle" id="last-updated">Loading&hellip;</span>
+  <div class="app">
+    <main id="map-pane">
+      <div id="map"></div>
+    </main>
 
-    <div class="stats" id="stats"></div>
-  </header>
-
-  <div class="filter-bar">
-    <div class="filter-group">
-      <span class="filter-group-label">Layers</span>
-      <button class="filter-chip" id="layer-wards" data-active="true" data-group="layer">
-        Wards
+    <aside class="panel" id="panel">
+      <button class="panel-drag-handle" id="panel-toggle" aria-label="Toggle filter panel" aria-expanded="false">
+        <span class="handle-bar"></span>
+        <span class="handle-label">Stats &amp; filters</span>
       </button>
-      <button class="filter-chip" id="layer-active" data-active="true" data-group="layer">
-        <span class="swatch" style="background: var(--series-active)"></span>
-        Active permits
-      </button>
-      <button class="filter-chip" id="layer-cleared" data-active="true" data-group="layer">
-        <span class="swatch" style="background: var(--series-cleared)"></span>
-        Cleared permits
-      </button>
-    </div>
 
-    <div class="filter-group">
-      <span class="filter-group-label">Street type</span>
-      <button class="filter-chip" data-active="true" data-group="road-class" data-value="major">Major</button>
-      <button class="filter-chip" data-active="true" data-group="road-class" data-value="minor">Minor</button>
-      <button class="filter-chip" data-active="true" data-group="road-class" data-value="unknown">Unknown</button>
-    </div>
+      <div class="panel-scroll">
+        <header class="panel-header">
+          <h1>Toronto Multiplex Tracker</h1>
+          <span class="subtitle" id="last-updated">Loading&hellip;</span>
+          <div class="stats" id="stats"></div>
+        </header>
 
-    <div class="filter-group">
-      <span class="filter-group-label">Structure type</span>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Laneway / garden suite">Laneway / garden suite</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Duplex (2 units)">Duplex</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Triplex / fourplex (3-4 units)">Triplex / fourplex</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-unit building">Multi-unit building</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-tenant / rooming house">Multi-tenant / rooming house</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Mixed use">Mixed use</button>
-      <button class="filter-chip" data-active="true" data-group="structure" data-value="Other">Other</button>
-    </div>
+        <div class="filter-bar">
+          <div class="filter-group">
+            <span class="filter-group-label">Layers</span>
+            <button class="filter-chip" id="layer-wards" data-active="true" data-group="layer">
+              Wards
+            </button>
+            <button class="filter-chip" id="layer-active" data-active="true" data-group="layer">
+              <span class="swatch" style="background: var(--series-active)"></span>
+              Active permits
+            </button>
+            <button class="filter-chip" id="layer-cleared" data-active="true" data-group="layer">
+              <span class="swatch" style="background: var(--series-cleared)"></span>
+              Cleared permits
+            </button>
+          </div>
 
-    <div class="date-filter">
-      <div class="filter-group-label">Application date</div>
-      <div class="histogram" id="histogram"></div>
-      <div class="range-slider" id="range-slider">
-        <div class="range-track"></div>
-        <div class="range-fill" id="range-fill"></div>
-        <input type="range" id="range-min" class="range-input">
-        <input type="range" id="range-max" class="range-input">
+          <div class="filter-group">
+            <span class="filter-group-label">Street type</span>
+            <button class="filter-chip" data-active="true" data-group="road-class" data-value="major">Major</button>
+            <button class="filter-chip" data-active="true" data-group="road-class" data-value="minor">Minor</button>
+            <button class="filter-chip" data-active="true" data-group="road-class" data-value="unknown">Unknown</button>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-group-label">Structure type</span>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Laneway / garden suite">Laneway / garden suite</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Duplex (2 units)">Duplex</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Triplex / fourplex (3-4 units)">Triplex / fourplex</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-unit building">Multi-unit building</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-tenant / rooming house">Multi-tenant / rooming house</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Mixed use">Mixed use</button>
+            <button class="filter-chip" data-active="true" data-group="structure" data-value="Other">Other</button>
+          </div>
+
+          <div class="date-filter">
+            <div class="filter-group-label">Application date</div>
+            <div class="histogram" id="histogram"></div>
+            <div class="range-slider" id="range-slider">
+              <div class="range-track"></div>
+              <div class="range-fill" id="range-fill"></div>
+              <input type="range" id="range-min" class="range-input">
+              <input type="range" id="range-max" class="range-input">
+            </div>
+            <div class="range-labels">
+              <span id="range-label-min"></span>
+              <span id="range-label-max"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div id="ward-legend-section">
+            <h2>Net new units by ward</h2>
+            <div id="ward-bins"></div>
+            <hr>
+          </div>
+          <h2>Permit points</h2>
+          <div class="legend-row">
+            <span class="swatch" style="background: var(--series-active)"></span>
+            <span>Active (in progress)</span>
+          </div>
+          <div class="legend-row">
+            <span class="swatch" style="background: var(--series-cleared)"></span>
+            <span>Cleared (completed)</span>
+          </div>
+          <div class="legend-row">
+            <span style="color: var(--text-muted)">Point size &asymp; net units created</span>
+          </div>
+        </div>
       </div>
-      <div class="range-labels">
-        <span id="range-label-min"></span>
-        <span id="range-label-max"></span>
-      </div>
-    </div>
+    </aside>
   </div>
-
-  <main>
-    <div id="map"></div>
-    <div class="legend">
-      <div id="ward-legend-section">
-        <h2>Net new units by ward</h2>
-        <div id="ward-bins"></div>
-        <hr>
-      </div>
-      <h2>Permit points</h2>
-      <div class="legend-row">
-        <span class="swatch" style="background: var(--series-active)"></span>
-        <span>Active (in progress)</span>
-      </div>
-      <div class="legend-row">
-        <span class="swatch" style="background: var(--series-cleared)"></span>
-        <span>Cleared (completed)</span>
-      </div>
-      <div class="legend-row">
-        <span style="color: var(--text-muted)">Point size &asymp; net units created</span>
-      </div>
-    </div>
-  </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="map.js"></script>

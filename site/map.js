@@ -159,6 +159,19 @@ L.tileLayer(TILE_URL, {
 
 L.control.zoom({ position: "topright" }).addTo(map);
 
+// Mobile bottom-sheet toggle (no-op on desktop, where the panel is always fully visible).
+const panelToggle = document.getElementById("panel-toggle");
+const panel = document.getElementById("panel");
+panelToggle.addEventListener("click", () => {
+  const expanded = panel.classList.toggle("expanded");
+  panelToggle.setAttribute("aria-expanded", String(expanded));
+});
+
+// The map container's size can change (sidebar/bottom-sheet layout switching at the
+// responsive breakpoint, orientation change, window resize) -- Leaflet caches its
+// container size, so it needs to be told to re-measure.
+window.addEventListener("resize", () => map.invalidateSize());
+
 let permitsLayer = null;
 let allPermitLayers = []; // every circleMarker layer, regardless of current add/remove state
 let wardsLayer = null;
