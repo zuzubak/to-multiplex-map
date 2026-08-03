@@ -1,15 +1,15 @@
 {
-  "last_updated": "2026-08-02T12:01:42+00:00",
+  "last_updated": "2026-08-03T13:39:46+00:00",
   "totals_by_status": [
     {
-      "status": "active",
-      "permit_count": 2923,
-      "net_units_created": 4711
+      "status": "cleared",
+      "permit_count": 3237,
+      "net_units_created": 4053
     },
     {
-      "status": "cleared",
-      "permit_count": 3236,
-      "net_units_created": 4052
+      "status": "active",
+      "permit_count": 2929,
+      "net_units_created": 4728
     }
   ],
   "unmatched_address_count": 111,
