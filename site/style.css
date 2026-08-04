@@ -414,7 +414,11 @@ html, body {
     transition: max-height 220ms ease;
   }
 
-  .panel.expanded {
+  .panel[data-state="minimized"] {
+    max-height: 56px;
+  }
+
+  .panel[data-state="expanded"] {
     max-height: 82vh;
   }
 
@@ -455,7 +459,11 @@ html, body {
     color: var(--text-muted);
   }
 
-  .panel.expanded .handle-label::after {
+  .panel[data-state="minimized"] .handle-label {
+    display: none;
+  }
+
+  .panel[data-state="expanded"] .handle-label::after {
     content: " (tap to collapse)";
   }
 }

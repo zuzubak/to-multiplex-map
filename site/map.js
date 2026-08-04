@@ -156,14 +156,20 @@ function isMobile() {
 }
 
 // Cluster badges: colour AND size both scale with how many permits are in the cluster,
-// using the same sequential ramp as the ward choropleth.
-const CLUSTER_THRESHOLDS = [10, 25, 50, 100];
+// using the same sequential ramp as the ward choropleth. Thresholds are NOT fixed --
+// cluster sizes vary hugely by zoom level (a handful of markers per cluster zoomed in,
+// hundreds zoomed out), so fixed thresholds meant every cluster at a typical city-wide
+// zoom saturated the top bucket and looked uniformly dark. Instead, thresholds are
+// recomputed from the actual cluster sizes visible at the current zoom/pan (see
+// refreshClusterColors below), the same quantile-binning approach used for the ward
+// choropleth.
 const CLUSTER_SIZES = [30, 36, 42, 48, 56];
+let clusterColorThresholds = [2, 4, 8, 16]; // placeholder until the first refresh runs
 
 function clusterIconCreate(cluster) {
   const count = cluster.getChildCount();
   let idx = 0;
-  while (idx < CLUSTER_THRESHOLDS.length && count >= CLUSTER_THRESHOLDS[idx]) idx += 1;
+  while (idx < clusterColorThresholds.length && count >= clusterColorThresholds[idx]) idx += 1;
   const color = SEQUENTIAL_RAMP[Math.min(idx + 1, SEQUENTIAL_RAMP.length - 1)];
   const size = CLUSTER_SIZES[idx];
   return L.divIcon({
@@ -171,6 +177,21 @@ function clusterIconCreate(cluster) {
     className: "",
     iconSize: L.point(size, size),
   });
+}
+
+// Leaflet.markercluster has no public API to enumerate the clusters currently on screen,
+// so this reaches into the (internal, but stable across 1.x) _featureGroup that holds the
+// visible cluster/marker icons. Recomputes color bins from their actual child counts, then
+// asks the plugin to redraw icons (refreshClusters is the public API for that part).
+function refreshClusterColors() {
+  if (!(permitsLayer instanceof L.MarkerClusterGroup)) return;
+  const counts = [];
+  permitsLayer._featureGroup.eachLayer((layer) => {
+    if (layer instanceof L.MarkerCluster) counts.push(layer.getChildCount());
+  });
+  if (counts.length === 0) return;
+  clusterColorThresholds = computeBins(counts);
+  permitsLayer.refreshClusters();
 }
 
 const map = L.map("map", {
@@ -191,18 +212,24 @@ L.tileLayer(TILE_URL, {
 L.control.zoom({ position: "topright" }).addTo(map);
 
 // Mobile bottom-sheet: draggable via pointer events (mouse + touch in one API), plus a
-// plain tap (no meaningful movement) still toggles collapsed/expanded. No-op on desktop,
-// where the panel is a normal full-height sidebar, not a fixed-position sheet.
+// plain tap (no meaningful movement) toggles collapsed/expanded. Three snap states --
+// minimized (just the handle, for "get this out of my way"), collapsed (the default
+// peek), expanded (full filter access) -- so dragging down from the default state has
+// somewhere smaller to land, instead of just springing back to where it started.
+// No-op on desktop, where the panel is a normal full-height sidebar, not a sheet.
 const panelToggle = document.getElementById("panel-toggle");
 const panel = document.getElementById("panel");
+const PANEL_MINIMIZED_PX = 56;
 const PANEL_COLLAPSED_VH = 0.42;
 const PANEL_EXPANDED_VH = 0.82;
 const DRAG_MOVE_THRESHOLD = 6; // px -- below this, a pointerup is treated as a tap
 
-function setPanelExpanded(expanded) {
-  panel.classList.toggle("expanded", expanded);
-  panelToggle.setAttribute("aria-expanded", String(expanded));
+function setPanelState(state) {
+  panel.dataset.state = state;
+  panelToggle.setAttribute("aria-expanded", String(state === "expanded"));
 }
+
+setPanelState("collapsed");
 
 (function setupPanelDrag() {
   let dragging = false;
@@ -228,7 +255,7 @@ function setPanelExpanded(expanded) {
     const deltaY = startY - e.clientY; // positive while dragging upward
     if (Math.abs(deltaY) > DRAG_MOVE_THRESHOLD) moved = true;
     const vh = window.innerHeight;
-    const minHeight = vh * 0.12;
+    const minHeight = PANEL_MINIMIZED_PX;
     const maxHeight = vh * 0.92;
     lastHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + deltaY));
     panel.style.height = `${lastHeight}px`;
@@ -242,12 +269,19 @@ function setPanelExpanded(expanded) {
     panel.style.maxHeight = "";
 
     if (!moved) {
-      setPanelExpanded(!panel.classList.contains("expanded"));
+      setPanelState(panel.dataset.state === "expanded" ? "collapsed" : "expanded");
       return;
     }
+
     const vh = window.innerHeight;
-    const midpoint = vh * ((PANEL_COLLAPSED_VH + PANEL_EXPANDED_VH) / 2);
-    setPanelExpanded(lastHeight > midpoint);
+    const collapsedPx = vh * PANEL_COLLAPSED_VH;
+    const expandedPx = vh * PANEL_EXPANDED_VH;
+    const midLow = (PANEL_MINIMIZED_PX + collapsedPx) / 2;
+    const midHigh = (collapsedPx + expandedPx) / 2;
+
+    if (lastHeight < midLow) setPanelState("minimized");
+    else if (lastHeight < midHigh) setPanelState("collapsed");
+    else setPanelState("expanded");
   }
 
   panelToggle.addEventListener("pointerup", endDrag);
@@ -327,8 +361,15 @@ function rebuildPermitsLayer() {
   if (permitsData) {
     renderPermitVisibility(visibleFeatures());
     keepWardsAtBack();
+    // Leaflet.markercluster doesn't finish building its internal cluster icons within
+    // the same synchronous call stack as the addLayer() calls above (confirmed by
+    // testing: _featureGroup is still empty immediately after) -- defer a frame so
+    // refreshClusterColors actually finds clusters to compute thresholds from.
+    requestAnimationFrame(refreshClusterColors);
   }
 }
+
+map.on("zoomend moveend", () => requestAnimationFrame(refreshClusterColors));
 
 // ---- Filter state -----------------------------------------------------------------
 
