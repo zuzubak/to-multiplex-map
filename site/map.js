@@ -142,6 +142,37 @@ function radiusForUnits(units) {
   return points[0][1];
 }
 
+// Same key used to identify a permit's marker throughout: permit_num alone isn't unique --
+// a small number of permits (data quirk, not our pipeline) appear once as 'active' and once
+// as 'cleared' with the same permit_num, so status has to be part of the identity or hiding
+// one status leaves the other status's copy of the same permit_num still showing.
+function featureKey(properties) {
+  return properties.permit_num + "|" + properties.status;
+}
+
+const MOBILE_BREAKPOINT = "(max-width: 860px)";
+function isMobile() {
+  return window.matchMedia(MOBILE_BREAKPOINT).matches;
+}
+
+// Cluster badges: colour AND size both scale with how many permits are in the cluster,
+// using the same sequential ramp as the ward choropleth.
+const CLUSTER_THRESHOLDS = [10, 25, 50, 100];
+const CLUSTER_SIZES = [30, 36, 42, 48, 56];
+
+function clusterIconCreate(cluster) {
+  const count = cluster.getChildCount();
+  let idx = 0;
+  while (idx < CLUSTER_THRESHOLDS.length && count >= CLUSTER_THRESHOLDS[idx]) idx += 1;
+  const color = SEQUENTIAL_RAMP[Math.min(idx + 1, SEQUENTIAL_RAMP.length - 1)];
+  const size = CLUSTER_SIZES[idx];
+  return L.divIcon({
+    html: `<div class="cluster-badge" style="width:${size}px;height:${size}px;font-size:${size >= 42 ? 13 : 11}px;background:${color}">${count}</div>`,
+    className: "",
+    iconSize: L.point(size, size),
+  });
+}
+
 const map = L.map("map", {
   center: TORONTO_CENTER,
   zoom: 10.5,
@@ -159,13 +190,69 @@ L.tileLayer(TILE_URL, {
 
 L.control.zoom({ position: "topright" }).addTo(map);
 
-// Mobile bottom-sheet toggle (no-op on desktop, where the panel is always fully visible).
+// Mobile bottom-sheet: draggable via pointer events (mouse + touch in one API), plus a
+// plain tap (no meaningful movement) still toggles collapsed/expanded. No-op on desktop,
+// where the panel is a normal full-height sidebar, not a fixed-position sheet.
 const panelToggle = document.getElementById("panel-toggle");
 const panel = document.getElementById("panel");
-panelToggle.addEventListener("click", () => {
-  const expanded = panel.classList.toggle("expanded");
+const PANEL_COLLAPSED_VH = 0.42;
+const PANEL_EXPANDED_VH = 0.82;
+const DRAG_MOVE_THRESHOLD = 6; // px -- below this, a pointerup is treated as a tap
+
+function setPanelExpanded(expanded) {
+  panel.classList.toggle("expanded", expanded);
   panelToggle.setAttribute("aria-expanded", String(expanded));
-});
+}
+
+(function setupPanelDrag() {
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  let moved = false;
+  let lastHeight = 0; // the most recently applied height, used to decide the snap target
+
+  panelToggle.addEventListener("pointerdown", (e) => {
+    if (!isMobile()) return;
+    dragging = true;
+    moved = false;
+    startY = e.clientY;
+    startHeight = panel.getBoundingClientRect().height;
+    lastHeight = startHeight;
+    panel.classList.add("dragging");
+    panel.style.maxHeight = "none";
+    panelToggle.setPointerCapture(e.pointerId);
+  });
+
+  panelToggle.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const deltaY = startY - e.clientY; // positive while dragging upward
+    if (Math.abs(deltaY) > DRAG_MOVE_THRESHOLD) moved = true;
+    const vh = window.innerHeight;
+    const minHeight = vh * 0.12;
+    const maxHeight = vh * 0.92;
+    lastHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + deltaY));
+    panel.style.height = `${lastHeight}px`;
+  });
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove("dragging");
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+
+    if (!moved) {
+      setPanelExpanded(!panel.classList.contains("expanded"));
+      return;
+    }
+    const vh = window.innerHeight;
+    const midpoint = vh * ((PANEL_COLLAPSED_VH + PANEL_EXPANDED_VH) / 2);
+    setPanelExpanded(lastHeight > midpoint);
+  }
+
+  panelToggle.addEventListener("pointerup", endDrag);
+  panelToggle.addEventListener("pointercancel", endDrag);
+})();
 
 // The map container's size can change (sidebar/bottom-sheet layout switching at the
 // responsive breakpoint, orientation change, window resize) -- Leaflet caches its
@@ -173,9 +260,75 @@ panelToggle.addEventListener("click", () => {
 window.addEventListener("resize", () => map.invalidateSize());
 
 let permitsLayer = null;
-let allPermitLayers = []; // every circleMarker layer, regardless of current add/remove state
+let allPermitLayers = []; // every point layer (marker or circleMarker), regardless of add/remove state
 let wardsLayer = null;
 let wardFeaturesByName = null; // ward_name -> leaflet layer
+
+// Wards must always render behind permit points/clusters, regardless of toggle order --
+// otherwise (with the map's default shared canvas renderer) whichever layer was most
+// recently re-added ends up drawn last, i.e. on top.
+function keepWardsAtBack() {
+  if (wardsLayer && map.hasLayer(wardsLayer)) wardsLayer.bringToBack();
+}
+
+// Builds one point layer per permit feature directly from coordinates (not via L.geoJSON)
+// so the marker TYPE can differ by mode: plain canvas circleMarkers on desktop (unchanged
+// look/behaviour), or L.marker+divIcon on mobile -- Leaflet.markercluster clusters
+// L.Marker instances, not circleMarker/Path instances, so mobile needs real markers.
+function buildPointLayers(permits) {
+  const mobile = isMobile();
+  return permits.features.map((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const latlng = L.latLng(lat, lng);
+    const status = feature.properties.status;
+    const color = status === "active" ? "#eb6834" : status === "cleared" ? "#2a78d6" : "#898781";
+    const units = feature.properties.net_units_created || 1;
+
+    let layer;
+    if (mobile) {
+      const size = radiusForUnits(units) * 2;
+      layer = L.marker(latlng, {
+        icon: L.divIcon({
+          html: `<div class="point-badge" style="width:${size}px;height:${size}px;background:${color}"></div>`,
+          className: "",
+          iconSize: L.point(size, size),
+        }),
+      });
+    } else {
+      layer = L.circleMarker(latlng, {
+        radius: radiusForUnits(units),
+        fillColor: color,
+        fillOpacity: 0.9,
+        color: "#fcfcfb",
+        weight: 2,
+      });
+    }
+    layer.feature = feature;
+    layer.bindPopup(() => popupContent(feature.properties));
+    return layer;
+  });
+}
+
+function rebuildPermitsLayer() {
+  if (permitsLayer) map.removeLayer(permitsLayer);
+
+  allPermitLayers = buildPointLayers(permitsData);
+  permitsLayer = isMobile()
+    ? L.markerClusterGroup({
+        iconCreateFunction: clusterIconCreate,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        maxClusterRadius: 60,
+        disableClusteringAtZoom: 17,
+      })
+    : L.featureGroup();
+  map.addLayer(permitsLayer);
+
+  if (permitsData) {
+    renderPermitVisibility(visibleFeatures());
+    keepWardsAtBack();
+  }
+}
 
 // ---- Filter state -----------------------------------------------------------------
 
@@ -292,9 +445,9 @@ function renderPermitVisibility(features) {
   // Actually add/remove layers rather than toggling opacity: with the canvas renderer
   // (preferCanvas: true) a merely-transparent marker is still hit-tested on click, so an
   // opacity-only "hide" would let a filtered-out permit's popup still open.
-  const visibleIds = new Set(features.map((f) => f.properties.permit_num));
+  const visibleIds = new Set(features.map((f) => featureKey(f.properties)));
   for (const layer of allPermitLayers) {
-    const show = visibleIds.has(layer.feature.properties.permit_num);
+    const show = visibleIds.has(featureKey(layer.feature.properties));
     if (show) permitsLayer.addLayer(layer);
     else permitsLayer.removeLayer(layer);
   }
@@ -316,6 +469,7 @@ function applyAllFilters() {
     renderWardShading(features);
   }
   renderHistogramHighlight();
+  keepWardsAtBack();
 }
 
 // ---- Filter chip wiring ---------------------------------------------------------------
@@ -487,25 +641,11 @@ async function init() {
       wardFeaturesByName.set(layer.feature.properties.ward_name, layer);
     });
 
-    permitsLayer = L.geoJSON(permits, {
-      pointToLayer: (feature, latlng) => {
-        const status = feature.properties.status;
-        const color = status === "active" ? "#eb6834" : status === "cleared" ? "#2a78d6" : "#898781";
-        const units = feature.properties.net_units_created || 1;
-        return L.circleMarker(latlng, {
-          radius: radiusForUnits(units),
-          fillColor: color,
-          fillOpacity: 0.9,
-          color: "#fcfcfb",
-          weight: 2,
-        });
-      },
-      onEachFeature: (feature, layer) => {
-        layer.bindPopup(() => popupContent(feature.properties));
-      },
-    }).addTo(map);
-    allPermitLayers = [];
-    permitsLayer.eachLayer((layer) => allPermitLayers.push(layer));
+    rebuildPermitsLayer();
+
+    // Clustering only applies on mobile -- if the viewport crosses the responsive
+    // breakpoint (window resize, tablet rotation), switch rendering mode to match.
+    window.matchMedia(MOBILE_BREAKPOINT).addEventListener("change", rebuildPermitsLayer);
 
     setupChipFilters();
     buildHistogram(permits.features);

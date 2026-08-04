@@ -418,6 +418,10 @@ html, body {
     max-height: 82vh;
   }
 
+  .panel.dragging {
+    transition: none;
+  }
+
   .panel-drag-handle {
     display: flex;
     flex-direction: column;
@@ -427,12 +431,14 @@ html, body {
     padding: 10px 0 6px;
     background: none;
     border: none;
-    cursor: pointer;
+    cursor: grab;
     color: var(--text-secondary);
     font: inherit;
     position: sticky;
     top: 0;
     background: var(--surface-1);
+    touch-action: none;
+    user-select: none;
   }
 
   .handle-bar {
@@ -452,4 +458,24 @@ html, body {
   .panel.expanded .handle-label::after {
     content: " (tap to collapse)";
   }
+}
+
+/* ---- Mobile point markers + clusters (desktop keeps plain canvas circleMarkers) ---- */
+
+.point-badge {
+  border-radius: 50%;
+  border: 2px solid var(--surface-1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.cluster-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--surface-1);
+  color: #ffffff;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
