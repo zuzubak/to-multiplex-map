@@ -173,18 +173,6 @@ html, body {
   opacity: 0.5;
 }
 
-.filter-note {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-muted);
-  max-width: 46ch;
-}
-
-.filter-note strong {
-  color: var(--text-secondary);
-}
-
 .date-filter {
   align-self: stretch;
 }
