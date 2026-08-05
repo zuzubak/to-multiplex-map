@@ -29,7 +29,7 @@ function formatCompact(n) {
 const SCOPE_LABELS = {
   new_construction: "New construction",
   conversion: "Conversion / addition",
-  interior_only: "Basement / secondary suite (interior only)",
+  interior_only: "Interior alteration (no exterior change)",
   unclear: "Unclear from description",
 };
 
@@ -446,11 +446,15 @@ const filterState = {
   layers: { wards: true, active: true, cleared: true },
   roadClass: new Set(["major", "minor", "unknown"]),
   structure: new Set(),
-  // "interior_only" (basement/secondary suite -- interior work inside an existing house,
-  // not a new building) starts off: it's the majority of permits in outlying wards and
-  // isn't confirmable from Street View, so it would otherwise swamp the map. Chip in
-  // index.html is marked data-active="false" to match -- see setupChipFilters below,
-  // which reads that starting state rather than assuming everything starts on.
+  // "interior_only" (renovation inside an existing building, no addition/new construction
+  // -- most commonly, but not exclusively, a basement/secondary suite) starts off: it's the
+  // majority of permits in outlying wards and isn't confirmable from Street View, so it would
+  // otherwise swamp the map. This is the construction-type/scope-of-work axis, independent
+  // of the "House + secondary suite" structure-type filter below -- a basement suite can be
+  // interior_only (retrofit into an old house) or new_construction (built into a brand-new
+  // house), see structure/scope split in permits_with_units.sql. Chip in index.html is
+  // marked data-active="false" to match -- see setupChipFilters below, which reads that
+  // starting state rather than assuming everything starts on.
   scope: new Set(["new_construction", "conversion", "unclear"]),
   monthRange: [0, 0], // indices into `months`
 };
