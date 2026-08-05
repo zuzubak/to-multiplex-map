@@ -1,7 +1,7 @@
 # Toronto Multiplex Tracker
 
 A near-real-time map of new multiplex construction in Toronto: duplexes through
-fourplexes, secondary suites, and laneway/garden suites created by building permits
+six-plexes, secondary suites, and laneway/garden suites created by building permits
 filed since 2022. Refreshed daily straight from the City of Toronto's Open Data API --
 no static exports, no manual data drops.
 
@@ -45,9 +45,11 @@ restricted to the columns this project needs.
 - A permit counts if it created dwelling units (`DWELLING_UNITS_CREATED > 0`) and its
   proposed use isn't a single-family detached home (`PROPOSED_USE` not like `%Sfd%` /
   `%Single%`).
-- "Multiplex" scope is 1-4 net new units per permit (`dbt/models/marts/multiplex_permits.sql`),
-  covering secondary suites through fourplexes. Each feature keeps its exact unit count
-  (`unit_bucket`) so the map isn't lossy about it.
+- "Multiplex" scope is 1-6 net new units per permit (`dbt/models/marts/multiplex_permits.sql`),
+  covering secondary suites through six-plexes -- the cap matches Toronto's 2024 "Expanding
+  Housing Options" zoning update, which extended as-of-right multiplex permissions from 4
+  units up to 6 on larger lots. Each feature keeps its exact unit count (`unit_bucket`) so
+  the map isn't lossy about it.
 - Permits are geocoded by joining `STREET_NUM/NAME/TYPE/DIRECTION` against address
   points, same join key as the original repo's `new_units.sql`.
 - `STRUCTURE_TYPE` only encodes the resulting unit count/form, not the scope of work --

@@ -41,7 +41,7 @@ SCOPE_TO_VISIBILITY = {
     "unclear": "unclear",
 }
 
-SYSTEM_PROMPT = """You are classifying City of Toronto building permits by what work they actually describe, for a map that tracks new multiplex construction (duplexes/triplexes/fourplexes).
+SYSTEM_PROMPT = """You are classifying City of Toronto building permits by what work they actually describe, for a map that tracks new multiplex construction (duplexes through six-unit buildings).
 
 The map's structure_type field only tells you the resulting unit count -- it does NOT distinguish a genuine new-build duplex from a basement suite added to an existing house (both count as "2 unit"). Your job is to read each permit's own description and classify the SCOPE of work into exactly one of:
 

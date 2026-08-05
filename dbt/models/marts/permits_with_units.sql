@@ -127,7 +127,7 @@ select
         when f.structure_type like '2 Unit%' or f.structure_type like 'Duplex%'
             then 'Duplex (2 units)'
         when f.structure_type like '3+ Unit%' or f.structure_type like 'Triplex%'
-            then 'Triplex / fourplex (3-4 units)'
+            then 'Triplex+ (3-6 units)'
         when f.structure_type in ('Apartment Building', 'Multiple Unit Building', 'Stacked Townhouses')
             then 'Multi-unit building'
         when f.structure_type = 'Boarding/Lodging House' then 'Multi-tenant / rooming house'
