@@ -12,12 +12,14 @@ directly from the City's CKAN API on every run.
 ## How it works
 
 ```
-ingest/  -> pulls Building Permits (cleared + active) and reference geodata
-            (address points, ward boundaries) from Toronto Open Data into DuckDB
-dbt/     -> models the raw data into permit + ward-level marts (non-SFD filter,
-            unit counts, geocoding join) -- DuckDB + the spatial extension
-export/  -> turns the dbt marts into static GeoJSON/JSON for the map
-site/    -> a MapLibre GL JS map that reads those files, published via GitHub Pages
+ingest/    -> pulls Building Permits (cleared + active) and reference geodata
+              (address points, ward boundaries) from Toronto Open Data into DuckDB
+classify/  -> classifies new/changed permits by construction scope with Claude,
+              caching results as a dbt seed (dbt/seeds/llm_permit_scope.csv)
+dbt/       -> models the raw data into permit + ward-level marts (non-SFD filter,
+              unit counts, geocoding join, LLM + regex scope classification)
+export/    -> turns the dbt marts into static GeoJSON/JSON for the map
+site/      -> a MapLibre GL JS map that reads those files, published via GitHub Pages
 ```
 
 A GitHub Actions workflow (`.github/workflows/refresh.yml`) runs this whole chain daily
@@ -50,13 +52,22 @@ restricted to the columns this project needs.
   points, same join key as the original repo's `new_units.sql`.
 - `STRUCTURE_TYPE` only encodes the resulting unit count/form, not the scope of work --
   `2 Unit - Detached` covers both a genuine new-build duplex and a basement suite legalized
-  inside an existing house. `permits_with_units.sql` also classifies each permit's own
-  `DESCRIPTION` field (regex over keywords like "basement", "demolish", "interior
-  alteration") into `permit_scope` / `exterior_visibility` ("new_construction" /
-  "conversion" / "interior_only" / "unclear"), ported from a manual audit that found ~65% of
+  inside an existing house. `permits_with_units.sql` classifies each permit's own
+  `DESCRIPTION` field into `permit_scope` / `exterior_visibility` ("new_construction" /
+  "conversion" / "interior_only" / "unclear"), based on a manual audit that found ~65% of
   citywide multiplex-scale permits -- and a higher share on minor streets in outlying wards
   -- were basement/secondary suites or interior-only work, not new buildings. The map's
   "Construction type" filter hides `interior_only` by default for this reason.
+- The classification itself comes from `classify/classify_permits.py` (Claude Haiku,
+  structured JSON output), not a regex -- descriptions are messy free text (typos, ALL CAPS,
+  truncation, ambiguous phrasing) and a regex heuristic mis-sorted a meaningful share of
+  edge cases (e.g. "construct new two-storey front addition" reading as new construction
+  when it's really an addition to an existing house). Results are cached in
+  `dbt/seeds/llm_permit_scope.csv`, keyed by permit number + a hash of the description, so
+  each daily run only pays to classify permits that are new or whose description changed --
+  not the whole dataset. `permits_with_units.sql` still carries the original regex as a
+  fallback, used for any permit not yet in the cache (including every permit, on a run with
+  no `ANTHROPIC_API_KEY` set -- e.g. local dev).
 
 ## Running locally
 
@@ -66,6 +77,12 @@ pip install -r requirements.txt
 
 python ingest/fetch_permits.py
 python ingest/fetch_reference.py
+
+# Optional -- classifies new/changed permits with Claude, caching into
+# dbt/seeds/llm_permit_scope.csv. Skips gracefully (falls back to the regex
+# classifier) if ANTHROPIC_API_KEY isn't set.
+export ANTHROPIC_API_KEY=sk-ant-...
+python classify/classify_permits.py
 
 cd dbt && dbt build --profiles-dir . && cd ..
 
@@ -81,3 +98,7 @@ Enable GitHub Pages for this repo (Settings -> Pages -> Deploy from branch -> `m
 `/site`), then either wait for the daily scheduled run or trigger
 `.github/workflows/refresh.yml` manually (Actions tab -> Run workflow) to populate
 `site/data/`.
+
+Add `ANTHROPIC_API_KEY` as a repo secret (Settings -> Secrets and variables -> Actions ->
+New repository secret) to enable Claude-based classification in the daily refresh. Without
+it, the `classify` step no-ops and everything falls back to the regex classifier.

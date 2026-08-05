@@ -85,8 +85,23 @@ scoped as (
             when regexp_matches(f.description, '\baddition\b|\bextend\b|\benlarge\b|second storey addition|third storey|rear addition|side addition', 'i')
                 then 'addition'
             else 'unclear'
-        end as permit_scope
+        end as regex_permit_scope
     from filtered f
+),
+
+-- Claude (classify/classify_permits.py) reads each permit's description directly and
+-- classifies it into the same permit_scope vocabulary as the regex above, caching results
+-- in this seed keyed by permit_num + a hash of the description (so a revision that changes
+-- the text gets reclassified). The regex only exists as a fallback -- for local dev without
+-- an ANTHROPIC_API_KEY, and for any permit the classify step hasn't gotten to yet.
+resolved as (
+    select
+        f.*,
+        coalesce(llm.permit_scope::varchar, f.regex_permit_scope) as permit_scope
+    from scoped f
+    left join {{ ref('llm_permit_scope') }} llm
+        on f.permit_num = llm.permit_num
+        and md5(trim(f.description)) = llm.description_hash
 )
 
 select
@@ -132,7 +147,7 @@ select
     ap.ward,
     ap.geom,
     coalesce(cl.road_class, 'unknown') as road_class
-from scoped f
+from resolved f
 left join {{ ref('stg_address_points') }} ap
     on f.street_num = ap.street_num
     and f.street_name = ap.street_name

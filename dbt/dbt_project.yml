@@ -9,3 +9,13 @@ model-paths: ["models"]
 models:
   to_multiplex_map:
     +materialized: table
+
+seeds:
+  to_multiplex_map:
+    llm_permit_scope:
+      +column_types:
+        permit_num: varchar
+        description_hash: varchar
+        permit_scope: varchar
+        exterior_visibility: varchar
+        model: varchar
