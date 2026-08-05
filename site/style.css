@@ -425,6 +425,12 @@ html, body {
     transition: max-height 220ms ease;
   }
 
+  /* Collapsed/expanded heights are set inline by JS from window.innerHeight, not from
+     these vh rules -- on mobile browsers, CSS vh is pinned to the LARGEST viewport (as
+     if the address bar were hidden), not the actually-visible one, so an "82vh" panel
+     can visually overflow past the real viewport whenever the address bar is showing.
+     window.innerHeight tracks the real, current viewport, so JS is the source of truth;
+     these are just a pre-JS fallback to avoid a flash of the wrong size. */
   .panel[data-state="minimized"] {
     max-height: 56px;
   }

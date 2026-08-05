@@ -231,12 +231,34 @@ const PANEL_COLLAPSED_VH = 0.42;
 const PANEL_EXPANDED_VH = 0.82;
 const DRAG_MOVE_THRESHOLD = 6; // px -- above this, a native click is suppressed anyway
 
+function panelTargetHeight(state) {
+  // window.innerHeight tracks the real, currently-visible viewport (unlike CSS vh on
+  // mobile -- see the note in style.css), so it's the source of truth for how tall the
+  // panel should be in each state.
+  const vh = window.innerHeight;
+  if (state === "minimized") return PANEL_MINIMIZED_PX;
+  if (state === "expanded") return vh * PANEL_EXPANDED_VH;
+  return vh * PANEL_COLLAPSED_VH; // collapsed
+}
+
 function setPanelState(state) {
   panel.dataset.state = state;
   panelToggle.setAttribute("aria-expanded", String(state === "expanded"));
+  if (!panel.classList.contains("dragging")) {
+    panel.style.maxHeight = `${panelTargetHeight(state)}px`;
+  }
 }
 
 setPanelState("collapsed");
+
+// Re-apply the current state's pixel height when the visible viewport changes size --
+// covers both real window resizes and the mobile address bar showing/hiding (which
+// fires a resize event as window.innerHeight changes).
+window.addEventListener("resize", () => {
+  if (isMobile() && !panel.classList.contains("dragging")) {
+    setPanelState(panel.dataset.state);
+  }
+});
 
 panelHideBtn.addEventListener("click", () => setPanelState("minimized"));
 
