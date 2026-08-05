@@ -244,8 +244,13 @@ function panelTargetHeight(state) {
 function setPanelState(state) {
   panel.dataset.state = state;
   panelToggle.setAttribute("aria-expanded", String(state === "expanded"));
-  if (!panel.classList.contains("dragging")) {
+  // Desktop's sidebar is full-height CSS, not state-driven -- an inline max-height here
+  // would clamp it regardless of viewport width (inline styles aren't scoped by media
+  // query), so only touch it on mobile, where the panel really is a resizable sheet.
+  if (isMobile() && !panel.classList.contains("dragging")) {
     panel.style.maxHeight = `${panelTargetHeight(state)}px`;
+  } else if (!isMobile()) {
+    panel.style.maxHeight = "";
   }
 }
 
@@ -255,8 +260,8 @@ setPanelState("collapsed");
 // covers both real window resizes and the mobile address bar showing/hiding (which
 // fires a resize event as window.innerHeight changes).
 window.addEventListener("resize", () => {
-  if (isMobile() && !panel.classList.contains("dragging")) {
-    setPanelState(panel.dataset.state);
+  if (!panel.classList.contains("dragging")) {
+    setPanelState(panel.dataset.state); // no-op sizing on desktop; clears any stale inline height
   }
 });
 

@@ -77,7 +77,7 @@ html, body {
   flex-direction: column;
 }
 
-.panel-drag-handle {
+.panel-handle-row {
   display: none;
 }
 
