@@ -1,4 +1,17 @@
-"""Classify permits by construction scope using Claude, caching results as a dbt seed.
+"""Classify permits by unit form and construction scope using Claude, caching
+results as a dbt seed.
+
+Two independent judgments per permit -- they used to be forced into a single
+enum value (e.g. "basement_suite"), which conflated a structural fact (is the
+extra unit a basement/secondary suite tucked into a house) with a scope-of-work
+fact (was the building itself newly built or altered). Those are orthogonal: a
+basement suite can be part of a brand-new house (123 Edgecroft Rd) just as
+easily as a retrofit into an old one (11 Waterbridge Way), so a description
+that mentions "basement" no longer forces an "alteration" conclusion.
+
+- unit_form: basement_or_secondary_suite | standard -- structural, feeds
+  structure_category in permits_with_units.sql.
+- construction_type: feeds exterior_visibility (what's hidden by default).
 
 Runs after ingest, before `dbt build`. Only calls the API for permits whose
 (permit_num, description) combination isn't already in the seed cache -- so a
@@ -23,47 +36,48 @@ import duckdb
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "warehouse.duckdb"
 SEED_PATH = Path(__file__).resolve().parent.parent / "dbt" / "seeds" / "llm_permit_scope.csv"
-SEED_FIELDNAMES = ["permit_num", "description_hash", "permit_scope", "exterior_visibility", "model"]
+SEED_FIELDNAMES = ["permit_num", "description_hash", "construction_type", "unit_form", "model"]
 
 MODEL = "claude-haiku-4-5"
 BATCH_SIZE = 20
 
-SCOPE_TO_VISIBILITY = {
-    "new_construction_teardown": "new_construction",
-    "new_construction": "new_construction",
-    "garden_suite": "new_construction",
-    "conversion_no_demo": "conversion",
-    "addition": "conversion",
-    "severance": "conversion",
-    "basement_suite": "interior_only",
-    "secondary_suite": "interior_only",
-    "interior_alteration": "interior_only",
-    "unclear": "unclear",
-}
+UNIT_FORMS = ["basement_or_secondary_suite", "standard"]
+CONSTRUCTION_TYPES = [
+    "new_construction_teardown",
+    "new_construction",
+    "garden_suite",
+    "conversion",
+    "addition",
+    "alteration",
+    "severance",
+    "unclear",
+]
 
-SYSTEM_PROMPT = """You are classifying City of Toronto building permits by what work they actually describe, for a map that tracks new multiplex construction (duplexes through six-unit buildings).
+SYSTEM_PROMPT = """You are classifying City of Toronto building permits for a map that tracks new multiplex construction (duplexes through six-unit buildings). For each permit, read its own description and report two INDEPENDENT judgments:
 
-The map's structure_type field only tells you the resulting unit count -- it does NOT distinguish a genuine new-build duplex from a basement suite added to an existing house (both count as "2 unit"). Your job is to read each permit's own description and classify the SCOPE of work into exactly one of:
+1. unit_form -- is the extra unit specifically a basement suite, or an otherwise-unspecified "secondary/second suite" (one subordinate unit tucked into what is fundamentally still a single-family-scaled house)? Or is the structure a standard multi-unit form?
+   - basement_or_secondary_suite: description identifies the extra unit as being in a basement, or as a "secondary suite"/"second suite"/"2nd unit"/"2nd dwelling unit" without specifying elsewhere -- a house with one accessory unit added, not a building designed as multiple peer units.
+   - standard: everything else -- a true duplex/triplex/fourplex (built new or converted as such, with peer units, not one house plus one accessory suite), a laneway/garden suite, a larger multi-unit building, mixed use, etc.
 
-- new_construction_teardown: description says an existing building is demolished/razed AND a new building (duplex/triplex/fourplex/houseplex) is constructed in its place.
-- new_construction: a new building is constructed (new-build duplex/triplex/fourplex, or a new laneway/garden suite), with no demolition mentioned or needed (e.g. built on a vacant lot, or a new structure like a laneway suite added to a lot with an existing untouched house).
-- garden_suite: same as new_construction but specifically a garden suite / laneway suite (a new small detached structure in a rear yard).
-- basement_suite: the description explicitly mentions a basement -- a suite/unit/apartment added in the basement of an existing house. No new building.
-- secondary_suite: description mentions a "secondary suite" or "second unit"/"2nd unit" without saying where (could be basement, could be elsewhere in the house) -- interior work inside an existing house, not visible from outside.
-- interior_alteration: interior renovation/alteration language, adding a unit inside an existing structure, with no other category above matching.
-- conversion_no_demo: existing building's use is converted (e.g. "convert single family dwelling to duplex/triplex/fourplex", "change of use") without demolition. The building itself is not torn down, but the description doesn't specifically point to a basement/secondary suite -- this is a broader existing-envelope conversion, often the whole house.
-- addition: an addition/extension to an existing house (front addition, rear addition, second/third storey addition, extend) that also adds a unit. Not a full new building.
-- severance: the permit is about severing/splitting a lot rather than a building conversion.
-- unclear: the description doesn't give enough information to pick one of the above with any confidence (e.g. truncated text, revision notes with no real description, purely administrative language).
+2. construction_type -- what SCOPE of work does the description describe. This is independent of unit_form above: a basement suite can be added to a brand-new house just as easily as an old one, so do NOT let the word "basement" push you toward assuming this is an alteration to an existing building.
+   - new_construction_teardown: an existing building is demolished/razed AND a new building is constructed in its place.
+   - new_construction: a new building is constructed (new-build house/duplex/triplex/fourplex), no demolition mentioned or needed -- including when the description ALSO mentions a basement/secondary suite as one of the new building's units (e.g. "construct a new 2 storey SFD-detached dwelling" with a basement unit added by a later revision is still new_construction, not alteration).
+   - garden_suite: a new garden suite / laneway suite (a new small detached structure in a rear yard), including converting an existing garage into one.
+   - conversion: an EXISTING building's use is converted (e.g. "convert single family dwelling to duplex/triplex", "change of use") without demolition and without a specific addition or basement/secondary-suite framing.
+   - addition: an addition/extension to an EXISTING house (front/rear/side addition, second/third storey addition, extend) that also adds a unit.
+   - alteration: interior work inside an EXISTING structure that adds a unit, with no addition/extension and no broader conversion language -- this is the default reading for a plain basement/secondary suite proposal that gives no signal the building itself is new.
+   - severance: the permit is about severing/splitting a lot rather than a building conversion.
+   - unclear: the description doesn't give enough information to pick one of the above with any confidence (e.g. truncated text, revision notes with no real description, purely administrative language).
 
 Rules:
+- unit_form and construction_type are independent -- classify each on its own merits. A permit can be new_construction with unit_form=basement_or_secondary_suite (a brand-new house built with a basement apartment from the start), or alteration with unit_form=basement_or_secondary_suite (a basement suite retrofitted into an old house). Both are common; the word "basement" alone does not tell you which.
+- The signal for new construction is language like "construct a new ... dwelling/house", "new construction", explicit demolition + rebuild, or a vacant lot. The signal for an EXISTING building is language that treats the house as already standing -- "existing", "add a unit to", or a basement/secondary suite proposal with no mention of building anything new.
 - If demolition AND new construction are both mentioned, use new_construction_teardown even if it also uses words like "duplex".
-- If "basement" appears anywhere describing where the new unit/suite is, use basement_suite even if "secondary suite" is also mentioned -- basement_suite is more specific and wins.
-- Garage-to-laneway-suite conversions (e.g. "second storey addition over an existing garage to create a laneway suite") count as garden_suite/new_construction -- the garage becomes a genuinely new, visibly different structure, not an interior alteration to the main house.
+- Garage-to-laneway-suite conversions (e.g. "second storey addition over an existing garage to create a laneway suite") are garden_suite -- the garage becomes a genuinely new, visibly different structure.
 - A front/rear addition to the MAIN house (not a garage) that also adds a unit is "addition", not new_construction -- the original building remains standing.
-- Descriptions are often truncated by the source data, contain typos, or use ALL CAPS -- classify based on whatever text is present; don't penalize for typos or truncation unless there's genuinely not enough information (then use unclear).
+- Descriptions are often truncated by the source data, contain typos, or use ALL CAPS -- classify based on whatever text is present; don't penalize for typos or truncation unless there's genuinely not enough information (then use unclear for construction_type).
 
-Classify every permit given to you. Return exactly one classification per permit_num."""
+Classify every permit given to you. Return exactly one unit_form and one construction_type per permit_num."""
 
 POPULATION_QUERY = """
 with permits as (
@@ -135,9 +149,10 @@ CLASSIFICATION_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "permit_num": {"type": "string"},
-                    "scope": {"type": "string", "enum": list(SCOPE_TO_VISIBILITY.keys())},
+                    "unit_form": {"type": "string", "enum": UNIT_FORMS},
+                    "construction_type": {"type": "string", "enum": CONSTRUCTION_TYPES},
                 },
-                "required": ["permit_num", "scope"],
+                "required": ["permit_num", "unit_form", "construction_type"],
                 "additionalProperties": False,
             },
         }
@@ -168,7 +183,7 @@ def write_cache(cache: dict[str, dict]) -> None:
             writer.writerow({k: row.get(k, "") for k in SEED_FIELDNAMES})
 
 
-def classify_batch(client: anthropic.Anthropic, batch: list[tuple[str, str]]) -> dict[str, str]:
+def classify_batch(client: anthropic.Anthropic, batch: list[tuple[str, str]]) -> dict[str, tuple[str, str]]:
     numbered = "\n".join(
         f"{i + 1}. permit_num={permit_num!r} description={description!r}"
         for i, (permit_num, description) in enumerate(batch)
@@ -182,7 +197,7 @@ def classify_batch(client: anthropic.Anthropic, batch: list[tuple[str, str]]) ->
     )
     text = next(b.text for b in response.content if b.type == "text")
     data = json.loads(text)
-    return {c["permit_num"]: c["scope"] for c in data["classifications"]}
+    return {c["permit_num"]: (c["unit_form"], c["construction_type"]) for c in data["classifications"]}
 
 
 def main() -> None:
@@ -223,15 +238,16 @@ def main() -> None:
             failed += len(batch)
             continue
         for permit_num, description in batch:
-            scope = results.get(permit_num)
-            if scope not in SCOPE_TO_VISIBILITY:
+            result = results.get(permit_num)
+            if result is None or result[0] not in UNIT_FORMS or result[1] not in CONSTRUCTION_TYPES:
                 failed += 1
                 continue
+            unit_form, construction_type = result
             cache[permit_num] = {
                 "permit_num": permit_num,
                 "description_hash": description_hash(description),
-                "permit_scope": scope,
-                "exterior_visibility": SCOPE_TO_VISIBILITY[scope],
+                "construction_type": construction_type,
+                "unit_form": unit_form,
                 "model": MODEL,
             }
             classified += 1

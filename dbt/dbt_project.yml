@@ -16,6 +16,6 @@ seeds:
       +column_types:
         permit_num: varchar
         description_hash: varchar
-        permit_scope: varchar
-        exterior_visibility: varchar
+        construction_type: varchar
+        unit_form: varchar
         model: varchar

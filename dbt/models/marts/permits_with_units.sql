@@ -57,47 +57,59 @@ filtered as (
 
 -- Classifies each permit by what its own free-text description says was actually done,
 -- independent of structure_type/structure_category above (which only encode the resulting
--- unit count/form, not the scope of work). This surfaces basement/secondary-suite
--- legalizations -- interior work inside an existing house, invisible from the street/Street
--- View -- that structure_type otherwise files under the same code as a genuine new-build
--- duplex ("2 Unit - Detached" covers both). Ported from a manual audit of ~1,100 outlying-
--- ward permits: reading descriptions directly showed ~84% of "multiplex" permits on minor
--- streets outside downtown were basement suites or interior alterations, not new buildings.
--- Priority order matters -- e.g. a description can mention both "basement" and "convert",
--- so basement/secondary-suite wording is checked before the more generic conversion match.
+-- unit count/form, not the scope of work). Two INDEPENDENT axes, not one enum: unit_form
+-- (is the extra unit a basement/secondary suite tucked into a house, as opposed to a
+-- standard duplex/triplex/laneway-suite form) and construction_type (was the building
+-- itself newly built or altered). These used to be conflated into a single value keyed
+-- off whether "basement" appeared in the text, which was wrong -- a basement suite can be
+-- part of a brand-new house (123 Edgecroft Rd: "construct a new 2 storey SFD-detached
+-- dwelling" with a basement unit added by revision) just as easily as a retrofit into an
+-- old one (11 Waterbridge Way: "...in the basement of an existing 2 storey detached
+-- dwelling"). Priority order matters within each axis -- e.g. a description can mention
+-- both "basement" and "convert", so more specific wording is checked first.
 scoped as (
     select
         f.*,
         case
+            when regexp_matches(f.description, '\bbasement\b|\bbaesment\b', 'i') then 'basement_or_secondary_suite'
+            when regexp_matches(f.description, 'second(ary)? (suite|unit|dwelling)|2nd (suite|unit|dwelling)', 'i') then 'basement_or_secondary_suite'
+            else 'standard'
+        end as regex_unit_form,
+        case
             when regexp_matches(f.description, 'demolish|raze|remove existing|removal of the existing|burned down', 'i')
                 and regexp_matches(f.description, 'construct a new|construct new|new construction|proposed ,?two-storey duplex|build a (four|three|two)|houseplex|multiplex|fourplex|quadplex|triplex|duplex|laneway suite|construct\s+(a\s+|an\s+)?\d+[\s-]?unit', 'i')
                 then 'new_construction_teardown'
-            when regexp_matches(f.description, '\bbasement\b|\bbaesment\b', 'i') then 'basement_suite'
-            when regexp_matches(f.description, 'second(ary)? (suite|unit|dwelling)|2nd (suite|unit|dwelling)', 'i') then 'secondary_suite'
-            when regexp_matches(f.description, 'interior (alteration|renovation)', 'i') then 'interior_alteration'
+            when regexp_matches(f.description, 'interior (alteration|renovation)', 'i') then 'alteration'
             when regexp_matches(f.description, 'garden suite|laneway suite', 'i') then 'garden_suite'
             when regexp_matches(f.description, 'convert|conversion|covert existing|change of use|legaliz', 'i')
                 and not regexp_matches(f.description, 'demolish|raze|remove existing|removal of the existing', 'i')
-                then 'conversion_no_demo'
+                then 'conversion'
             when regexp_matches(f.description, '\bsever(ance|ed)?\b', 'i') then 'severance'
             when regexp_matches(f.description, 'construct a new|construct new|new construction|proposed ,?two-storey duplex|build a (four|three|two)|houseplex|multiplex|fourplex|quadplex|triplex|duplex|laneway suite|construct\s+(a\s+|an\s+)?\d+[\s-]?unit', 'i')
                 then 'new_construction'
             when regexp_matches(f.description, '\baddition\b|\bextend\b|\benlarge\b|second storey addition|third storey|rear addition|side addition', 'i')
                 then 'addition'
+            -- Basement/secondary-suite wording with no explicit new-construction or addition
+            -- signal defaults to "alteration to an existing building" -- the base rate for
+            -- these permits (a manual audit found ~85%+ genuinely are retrofits), while still
+            -- letting the new_construction/addition branches above win when the text says so.
+            when regexp_matches(f.description, '\bbasement\b|\bbaesment\b|second(ary)? (suite|unit|dwelling)|2nd (suite|unit|dwelling)', 'i')
+                then 'alteration'
             else 'unclear'
-        end as regex_permit_scope
+        end as regex_construction_type
     from filtered f
 ),
 
 -- Claude (classify/classify_permits.py) reads each permit's description directly and
--- classifies it into the same permit_scope vocabulary as the regex above, caching results
--- in this seed keyed by permit_num + a hash of the description (so a revision that changes
--- the text gets reclassified). The regex only exists as a fallback -- for local dev without
--- an ANTHROPIC_API_KEY, and for any permit the classify step hasn't gotten to yet.
+-- classifies both axes, caching results in this seed keyed by permit_num + a hash of the
+-- description (so a revision that changes the text gets reclassified). The regex above only
+-- exists as a fallback -- for local dev without an ANTHROPIC_API_KEY, and for any permit the
+-- classify step hasn't gotten to yet.
 resolved as (
     select
         f.*,
-        coalesce(llm.permit_scope::varchar, f.regex_permit_scope) as permit_scope
+        coalesce(llm.unit_form::varchar, f.regex_unit_form) as unit_form,
+        coalesce(llm.construction_type::varchar, f.regex_construction_type) as construction_type
     from scoped f
     left join {{ ref('llm_permit_scope') }} llm
         on f.permit_num = llm.permit_num
@@ -108,22 +120,30 @@ select
     f.permit_num,
     f.source_status as status,
     f.description,
-    f.permit_scope,
-    case f.permit_scope
+    f.construction_type,
+    f.unit_form,
+    case f.construction_type
         when 'new_construction_teardown' then 'new_construction'
         when 'new_construction' then 'new_construction'
         when 'garden_suite' then 'new_construction'
-        when 'conversion_no_demo' then 'conversion'
+        when 'conversion' then 'conversion'
         when 'addition' then 'conversion'
         when 'severance' then 'conversion'
-        when 'basement_suite' then 'interior_only'
-        when 'secondary_suite' then 'interior_only'
-        when 'interior_alteration' then 'interior_only'
+        when 'alteration' then 'interior_only'
         else 'unclear'
     end as exterior_visibility,
     f.structure_type,
     case
         when f.structure_type = 'Laneway / Rear Yard Suite' then 'Laneway / garden suite'
+        -- A "2 Unit" permit whose extra unit is specifically a basement/secondary suite is
+        -- a house with one accessory unit, not an architectural duplex -- split it into its
+        -- own category regardless of whether the house itself is new or existing (that's
+        -- what exterior_visibility/construction_type is for). Only applied at the 2-unit
+        -- level -- a 3-6 unit building is a genuinely different physical form even if some
+        -- of its units were created via interior conversion.
+        when (f.structure_type like '2 Unit%' or f.structure_type like 'Duplex%')
+            and f.unit_form = 'basement_or_secondary_suite'
+            then 'House + secondary suite'
         when f.structure_type like '2 Unit%' or f.structure_type like 'Duplex%'
             then 'Duplex (2 units)'
         when f.structure_type like '3+ Unit%' or f.structure_type like 'Triplex%'

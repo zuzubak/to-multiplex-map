@@ -55,21 +55,30 @@ restricted to the columns this project needs.
 - `STRUCTURE_TYPE` only encodes the resulting unit count/form, not the scope of work --
   `2 Unit - Detached` covers both a genuine new-build duplex and a basement suite legalized
   inside an existing house. `permits_with_units.sql` classifies each permit's own
-  `DESCRIPTION` field into `permit_scope` / `exterior_visibility` ("new_construction" /
-  "conversion" / "interior_only" / "unclear"), based on a manual audit that found ~65% of
-  citywide multiplex-scale permits -- and a higher share on minor streets in outlying wards
-  -- were basement/secondary suites or interior-only work, not new buildings. The map's
-  "Construction type" filter hides `interior_only` by default for this reason.
-- The classification itself comes from `classify/classify_permits.py` (Claude Haiku,
-  structured JSON output), not a regex -- descriptions are messy free text (typos, ALL CAPS,
-  truncation, ambiguous phrasing) and a regex heuristic mis-sorted a meaningful share of
-  edge cases (e.g. "construct new two-storey front addition" reading as new construction
-  when it's really an addition to an existing house). Results are cached in
-  `dbt/seeds/llm_permit_scope.csv`, keyed by permit number + a hash of the description, so
-  each daily run only pays to classify permits that are new or whose description changed --
-  not the whole dataset. `permits_with_units.sql` still carries the original regex as a
-  fallback, used for any permit not yet in the cache (including every permit, on a run with
-  no `ANTHROPIC_API_KEY` set -- e.g. local dev).
+  `DESCRIPTION` field into two INDEPENDENT axes -- they used to be a single conflated value,
+  which was wrong: a basement suite can be part of a brand-new house just as easily as a
+  retrofit into an old one, so "mentions a basement" doesn't imply "nothing new was built."
+  - `unit_form` (`basement_or_secondary_suite` / `standard`) -- is the extra unit a
+    basement/secondary suite tucked into an otherwise single-family-scaled house, as opposed
+    to a true duplex/triplex/laneway-suite form? Feeds `structure_category`: a "2 Unit"
+    permit with `basement_or_secondary_suite` shows as "House + secondary suite" rather than
+    "Duplex (2 units)".
+  - `construction_type` / `exterior_visibility` (`new_construction` / `conversion` /
+    `interior_only` / `unclear`) -- was the building itself newly built or altered? Based on
+    a manual audit that found ~65% of citywide multiplex-scale permits -- and a higher share
+    on minor streets in outlying wards -- were basement/secondary suites or interior-only
+    work on an *existing* house, not new buildings. The map's "Construction type" filter
+    hides `interior_only` by default for this reason -- but a basement suite built as part of
+    a brand-new house (e.g. a new SFD with a legal basement unit added by revision) is
+    correctly `new_construction`, not hidden.
+- Both fields come from `classify/classify_permits.py` (Claude Haiku, structured JSON
+  output), not a regex -- descriptions are messy free text (typos, ALL CAPS, truncation,
+  ambiguous phrasing) and a regex heuristic mis-sorted a meaningful share of edge cases.
+  Results are cached in `dbt/seeds/llm_permit_scope.csv`, keyed by permit number + a hash of
+  the description, so each daily run only pays to classify permits that are new or whose
+  description changed -- not the whole dataset. `permits_with_units.sql` still carries the
+  original regex as a fallback, used for any permit not yet in the cache (including every
+  permit, on a run with no `ANTHROPIC_API_KEY` set -- e.g. local dev).
 
 ## Running locally
 
