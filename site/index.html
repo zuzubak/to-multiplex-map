@@ -15,10 +15,15 @@
     </main>
 
     <aside class="panel" id="panel">
-      <button class="panel-drag-handle" id="panel-toggle" aria-label="Toggle filter panel" aria-expanded="false">
-        <span class="handle-bar"></span>
-        <span class="handle-label">Stats &amp; filters</span>
-      </button>
+      <div class="panel-handle-row">
+        <button class="panel-drag-handle" id="panel-toggle" aria-label="Toggle filter panel" aria-expanded="false">
+          <span class="handle-bar"></span>
+          <span class="handle-label">Stats &amp; filters</span>
+        </button>
+        <button class="panel-hide-btn" id="panel-hide" aria-label="Hide panel and show map">
+          Hide &#9660;
+        </button>
+      </div>
 
       <div class="panel-scroll">
         <header class="panel-header">
@@ -95,6 +100,11 @@
           <div class="legend-row">
             <span style="color: var(--text-muted)">Point size &asymp; net units created</span>
           </div>
+          <p class="legend-note">
+            <strong>Active</strong>: permit issued, construction underway or about to
+            start. <strong>Cleared</strong>: permit closed after final inspection &mdash;
+            construction is complete.
+          </p>
         </div>
       </div>
     </aside>

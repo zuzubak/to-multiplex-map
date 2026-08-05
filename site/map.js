@@ -211,18 +211,25 @@ L.tileLayer(TILE_URL, {
 
 L.control.zoom({ position: "topright" }).addTo(map);
 
-// Mobile bottom-sheet: draggable via pointer events (mouse + touch in one API), plus a
-// plain tap (no meaningful movement) toggles collapsed/expanded. Three snap states --
-// minimized (just the handle, for "get this out of my way"), collapsed (the default
-// peek), expanded (full filter access) -- so dragging down from the default state has
-// somewhere smaller to land, instead of just springing back to where it started.
-// No-op on desktop, where the panel is a normal full-height sidebar, not a sheet.
+// Mobile bottom-sheet: draggable via pointer events (mouse + touch in one API). Three
+// snap states -- minimized (just the handle, for "get this out of my way"), collapsed
+// (the default peek), expanded (full filter access) -- so dragging down from the default
+// state has somewhere smaller to land, instead of just springing back to where it
+// started. No-op on desktop, where the panel is a normal full-height sidebar, not a sheet.
+//
+// Taps are handled by a plain native "click" listener, not by measuring pointer movement
+// ourselves: browsers already suppress click after a real drag, and that's a much more
+// reliable tap/drag distinction on real touch hardware than a hand-rolled pixel
+// threshold (which misfired on real devices from ordinary touch jitter). There's also a
+// dedicated Hide button, wired independently, as a guaranteed way back to the map no
+// matter what the drag/tap handling above is doing.
 const panelToggle = document.getElementById("panel-toggle");
+const panelHideBtn = document.getElementById("panel-hide");
 const panel = document.getElementById("panel");
 const PANEL_MINIMIZED_PX = 56;
 const PANEL_COLLAPSED_VH = 0.42;
 const PANEL_EXPANDED_VH = 0.82;
-const DRAG_MOVE_THRESHOLD = 6; // px -- below this, a pointerup is treated as a tap
+const DRAG_MOVE_THRESHOLD = 6; // px -- above this, a native click is suppressed anyway
 
 function setPanelState(state) {
   panel.dataset.state = state;
@@ -230,6 +237,8 @@ function setPanelState(state) {
 }
 
 setPanelState("collapsed");
+
+panelHideBtn.addEventListener("click", () => setPanelState("minimized"));
 
 (function setupPanelDrag() {
   let dragging = false;
@@ -247,7 +256,12 @@ setPanelState("collapsed");
     lastHeight = startHeight;
     panel.classList.add("dragging");
     panel.style.maxHeight = "none";
-    panelToggle.setPointerCapture(e.pointerId);
+    try {
+      panelToggle.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // Non-fatal: pointer capture is a nice-to-have (keeps tracking if the finger
+      // slides off the handle), not required for the drag math below.
+    }
   });
 
   panelToggle.addEventListener("pointermove", (e) => {
@@ -256,7 +270,9 @@ setPanelState("collapsed");
     if (Math.abs(deltaY) > DRAG_MOVE_THRESHOLD) moved = true;
     const vh = window.innerHeight;
     const minHeight = PANEL_MINIMIZED_PX;
-    const maxHeight = vh * 0.92;
+    // Capped just above the expanded target (not e.g. 92vh) so an enthusiastic drag
+    // can't visually overshoot into something that reads as "fullscreen with no escape."
+    const maxHeight = vh * PANEL_EXPANDED_VH + 24;
     lastHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + deltaY));
     panel.style.height = `${lastHeight}px`;
   });
@@ -268,10 +284,7 @@ setPanelState("collapsed");
     panel.style.height = "";
     panel.style.maxHeight = "";
 
-    if (!moved) {
-      setPanelState(panel.dataset.state === "expanded" ? "collapsed" : "expanded");
-      return;
-    }
+    if (!moved) return; // plain tap: the native "click" listener below handles it
 
     const vh = window.innerHeight;
     const collapsedPx = vh * PANEL_COLLAPSED_VH;
@@ -286,6 +299,13 @@ setPanelState("collapsed");
 
   panelToggle.addEventListener("pointerup", endDrag);
   panelToggle.addEventListener("pointercancel", endDrag);
+
+  // Native click: browsers only fire this when pointerdown->pointerup happened without
+  // a real drag in between, so this is a clean, reliable tap-only signal.
+  panelToggle.addEventListener("click", () => {
+    if (!isMobile()) return;
+    setPanelState(panel.dataset.state === "expanded" ? "collapsed" : "expanded");
+  });
 })();
 
 // The map container's size can change (sidebar/bottom-sheet layout switching at the
@@ -320,12 +340,19 @@ function buildPointLayers(permits) {
 
     let layer;
     if (mobile) {
-      const size = radiusForUnits(units) * 2;
+      // The visible dot stays small (still encodes unit count via size), but the tap
+      // target is padded out to a comfortable minimum -- small dots were hard to hit
+      // precisely on a touchscreen otherwise.
+      const dotSize = radiusForUnits(units) * 2;
+      const touchSize = Math.max(dotSize, 36);
       layer = L.marker(latlng, {
         icon: L.divIcon({
-          html: `<div class="point-badge" style="width:${size}px;height:${size}px;background:${color}"></div>`,
+          html:
+            `<div style="width:${touchSize}px;height:${touchSize}px;display:flex;align-items:center;justify-content:center;">` +
+            `<div class="point-badge" style="width:${dotSize}px;height:${dotSize}px;background:${color}"></div>` +
+            `</div>`,
           className: "",
-          iconSize: L.point(size, size),
+          iconSize: L.point(touchSize, touchSize),
         }),
       });
     } else {

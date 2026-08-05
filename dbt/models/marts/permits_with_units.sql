@@ -14,6 +14,14 @@
 --     it's 0 for the majority of legitimate basement/interior-alteration secondary
 --     suites (no new floor area added), so filtering on it wrongly dropped ~2,500
 --     genuine permits. Kept as a plain column for reference/display, not for filtering.
+--   - permit_status matters a lot: "cleared" (source_status) just means the permit is in
+--     the City's cleared_permits archive, NOT that construction finished. Within that
+--     archive, permit_status is 'Closed' for genuinely completed permits but 'Cancelled'
+--     for permits that were withdrawn and never built -- 41% of what we'd otherwise call
+--     "cleared" in our multiplex-scale subset was actually Cancelled. Require
+--     permit_status = 'Closed' for cleared permits. For active permits, exclude a small
+--     set of terminal non-completion statuses (cancelled/refused/abandoned/revocation)
+--     that show up occasionally even in the "active" source.
 with permits as (
     select * from {{ ref('stg_cleared_permits') }}
     union all
@@ -33,6 +41,17 @@ filtered as (
         and trim(coalesce(structure_type, '')) not in (
             'Office', 'Hospital', 'Restaurant 30 Seats or Less', 'Home for the Aged',
             'Motel/Hotel', 'Place of Worship', 'Apartment Hotel'
+        )
+        and (
+            (source_status = 'cleared' and trim(coalesce(permit_status, '')) = 'Closed')
+            or (
+                source_status = 'active'
+                and trim(coalesce(permit_status, '')) not in (
+                    'Cancelled', 'Refused', 'Refusal Notice', 'Abandoned',
+                    'Revocation Pending', 'Revocation Notice Sent', 'Pending Cancellation',
+                    'Superseded'
+                )
+            )
         )
 )
 

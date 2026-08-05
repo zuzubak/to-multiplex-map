@@ -312,6 +312,17 @@ html, body {
   flex: none;
 }
 
+.legend-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.legend-note strong {
+  color: var(--text-secondary);
+}
+
 .ward-bin-row {
   display: flex;
   align-items: center;
@@ -426,21 +437,27 @@ html, body {
     transition: none;
   }
 
+  .panel-handle-row {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    background: var(--surface-1);
+  }
+
   .panel-drag-handle {
     display: flex;
+    flex: 1;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    width: 100%;
     padding: 10px 0 6px;
     background: none;
     border: none;
     cursor: grab;
     color: var(--text-secondary);
     font: inherit;
-    position: sticky;
-    top: 0;
-    background: var(--surface-1);
     touch-action: none;
     user-select: none;
   }
@@ -465,6 +482,25 @@ html, body {
 
   .panel[data-state="expanded"] .handle-label::after {
     content: " (tap to collapse)";
+  }
+
+  /* A dedicated, always-reliable escape hatch back to the map -- independent of the
+     drag/tap handling on panel-drag-handle, so there's always a guaranteed way out. */
+  .panel-hide-btn {
+    flex: none;
+    margin-right: 12px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--page-plane);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .panel[data-state="minimized"] .panel-hide-btn {
+    display: none;
   }
 }
 
