@@ -56,6 +56,20 @@
           </div>
 
           <div class="filter-group">
+            <span class="filter-group-label">Construction type</span>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="new_construction">New construction</button>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="conversion">Conversion / addition</button>
+            <button class="filter-chip" data-active="false" data-group="scope" data-value="interior_only">Basement / secondary suite</button>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="unclear">Unclear from description</button>
+          </div>
+          <p class="filter-note">
+            Read from each permit's own description, separate from its structure type below.
+            <strong>Basement / secondary suite</strong> permits add a unit inside an existing
+            house &mdash; no new building, usually nothing visible from the street &mdash; and are
+            hidden by default. Toggle on to see them.
+          </p>
+
+          <div class="filter-group">
             <span class="filter-group-label">Structure type</span>
             <button class="filter-chip" data-active="true" data-group="structure" data-value="Laneway / garden suite">Laneway / garden suite</button>
             <button class="filter-chip" data-active="true" data-group="structure" data-value="Duplex (2 units)">Duplex</button>

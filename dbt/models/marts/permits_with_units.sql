@@ -53,12 +53,59 @@ filtered as (
                 )
             )
         )
+),
+
+-- Classifies each permit by what its own free-text description says was actually done,
+-- independent of structure_type/structure_category above (which only encode the resulting
+-- unit count/form, not the scope of work). This surfaces basement/secondary-suite
+-- legalizations -- interior work inside an existing house, invisible from the street/Street
+-- View -- that structure_type otherwise files under the same code as a genuine new-build
+-- duplex ("2 Unit - Detached" covers both). Ported from a manual audit of ~1,100 outlying-
+-- ward permits: reading descriptions directly showed ~84% of "multiplex" permits on minor
+-- streets outside downtown were basement suites or interior alterations, not new buildings.
+-- Priority order matters -- e.g. a description can mention both "basement" and "convert",
+-- so basement/secondary-suite wording is checked before the more generic conversion match.
+scoped as (
+    select
+        f.*,
+        case
+            when regexp_matches(f.description, 'demolish|raze|remove existing|removal of the existing|burned down', 'i')
+                and regexp_matches(f.description, 'construct a new|construct new|new construction|proposed ,?two-storey duplex|build a (four|three|two)|houseplex|multiplex|fourplex|quadplex|triplex|duplex|laneway suite|construct\s+(a\s+|an\s+)?\d+[\s-]?unit', 'i')
+                then 'new_construction_teardown'
+            when regexp_matches(f.description, '\bbasement\b|\bbaesment\b', 'i') then 'basement_suite'
+            when regexp_matches(f.description, 'second(ary)? (suite|unit|dwelling)|2nd (suite|unit|dwelling)', 'i') then 'secondary_suite'
+            when regexp_matches(f.description, 'interior (alteration|renovation)', 'i') then 'interior_alteration'
+            when regexp_matches(f.description, 'garden suite|laneway suite', 'i') then 'garden_suite'
+            when regexp_matches(f.description, 'convert|conversion|covert existing|change of use|legaliz', 'i')
+                and not regexp_matches(f.description, 'demolish|raze|remove existing|removal of the existing', 'i')
+                then 'conversion_no_demo'
+            when regexp_matches(f.description, '\bsever(ance|ed)?\b', 'i') then 'severance'
+            when regexp_matches(f.description, 'construct a new|construct new|new construction|proposed ,?two-storey duplex|build a (four|three|two)|houseplex|multiplex|fourplex|quadplex|triplex|duplex|laneway suite|construct\s+(a\s+|an\s+)?\d+[\s-]?unit', 'i')
+                then 'new_construction'
+            when regexp_matches(f.description, '\baddition\b|\bextend\b|\benlarge\b|second storey addition|third storey|rear addition|side addition', 'i')
+                then 'addition'
+            else 'unclear'
+        end as permit_scope
+    from filtered f
 )
 
 select
     f.permit_num,
     f.source_status as status,
     f.description,
+    f.permit_scope,
+    case f.permit_scope
+        when 'new_construction_teardown' then 'new_construction'
+        when 'new_construction' then 'new_construction'
+        when 'garden_suite' then 'new_construction'
+        when 'conversion_no_demo' then 'conversion'
+        when 'addition' then 'conversion'
+        when 'severance' then 'conversion'
+        when 'basement_suite' then 'interior_only'
+        when 'secondary_suite' then 'interior_only'
+        when 'interior_alteration' then 'interior_only'
+        else 'unclear'
+    end as exterior_visibility,
     f.structure_type,
     case
         when f.structure_type = 'Laneway / Rear Yard Suite' then 'Laneway / garden suite'
@@ -85,7 +132,7 @@ select
     ap.ward,
     ap.geom,
     coalesce(cl.road_class, 'unknown') as road_class
-from filtered f
+from scoped f
 left join {{ ref('stg_address_points') }} ap
     on f.street_num = ap.street_num
     and f.street_name = ap.street_name

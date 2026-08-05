@@ -48,6 +48,15 @@ restricted to the columns this project needs.
   (`unit_bucket`) so the map isn't lossy about it.
 - Permits are geocoded by joining `STREET_NUM/NAME/TYPE/DIRECTION` against address
   points, same join key as the original repo's `new_units.sql`.
+- `STRUCTURE_TYPE` only encodes the resulting unit count/form, not the scope of work --
+  `2 Unit - Detached` covers both a genuine new-build duplex and a basement suite legalized
+  inside an existing house. `permits_with_units.sql` also classifies each permit's own
+  `DESCRIPTION` field (regex over keywords like "basement", "demolish", "interior
+  alteration") into `permit_scope` / `exterior_visibility` ("new_construction" /
+  "conversion" / "interior_only" / "unclear"), ported from a manual audit that found ~65% of
+  citywide multiplex-scale permits -- and a higher share on minor streets in outlying wards
+  -- were basement/secondary suites or interior-only work, not new buildings. The map's
+  "Construction type" filter hides `interior_only` by default for this reason.
 
 ## Running locally
 

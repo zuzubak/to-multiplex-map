@@ -26,6 +26,13 @@ function formatCompact(n) {
   return new Intl.NumberFormat("en-CA", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
+const SCOPE_LABELS = {
+  new_construction: "New construction",
+  conversion: "Conversion / addition",
+  interior_only: "Basement / secondary suite (interior only)",
+  unclear: "Unclear from description",
+};
+
 function popupContent(properties) {
   const wrap = document.createElement("div");
 
@@ -39,6 +46,7 @@ function popupContent(properties) {
     ["Units created", properties.dwelling_units_created],
     ["Units lost", properties.dwelling_units_lost],
     ["Net new units", properties.net_units_created],
+    ["Construction type", SCOPE_LABELS[properties.exterior_visibility] || properties.exterior_visibility],
     ["Structure", properties.structure_category],
     ["Structure type (raw)", properties.structure_type],
     ["Street type", properties.road_class],
@@ -63,6 +71,13 @@ function popupContent(properties) {
 
     row.append(kEl, vEl);
     wrap.appendChild(row);
+  }
+
+  if (properties.description) {
+    const desc = document.createElement("div");
+    desc.className = "popup-description";
+    desc.textContent = `“${properties.description}”`;
+    wrap.appendChild(desc);
   }
 
   return wrap;
@@ -431,6 +446,12 @@ const filterState = {
   layers: { wards: true, active: true, cleared: true },
   roadClass: new Set(["major", "minor", "unknown"]),
   structure: new Set(),
+  // "interior_only" (basement/secondary suite -- interior work inside an existing house,
+  // not a new building) starts off: it's the majority of permits in outlying wards and
+  // isn't confirmable from Street View, so it would otherwise swamp the map. Chip in
+  // index.html is marked data-active="false" to match -- see setupChipFilters below,
+  // which reads that starting state rather than assuming everything starts on.
+  scope: new Set(["new_construction", "conversion", "unclear"]),
   monthRange: [0, 0], // indices into `months`
 };
 
@@ -463,6 +484,7 @@ function passesNonDateFilters(props) {
   if (props.status === "cleared" && !filterState.layers.cleared) return false;
   if (!filterState.roadClass.has(props.road_class)) return false;
   if (!filterState.structure.has(props.structure_category)) return false;
+  if (!filterState.scope.has(props.exterior_visibility)) return false;
   return true;
 }
 
@@ -615,6 +637,19 @@ function setupChipFilters() {
       chip.dataset.active = isActive ? "false" : "true";
       if (isActive) filterState.structure.delete(chip.dataset.value);
       else filterState.structure.add(chip.dataset.value);
+      applyAllFilters();
+    });
+  });
+
+  // Unlike structure/road-class above, "scope" chips don't all start active (see
+  // filterState.scope's initial value), so wiring must respect each chip's own
+  // data-active in the HTML rather than force-adding every value at setup.
+  document.querySelectorAll('[data-group="scope"]').forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const isActive = chip.dataset.active === "true";
+      chip.dataset.active = isActive ? "false" : "true";
+      if (isActive) filterState.scope.delete(chip.dataset.value);
+      else filterState.scope.add(chip.dataset.value);
       applyAllFilters();
     });
   });

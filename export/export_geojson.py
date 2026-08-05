@@ -23,6 +23,8 @@ def build_permits_geojson(con: duckdb.DuckDBPyConnection) -> tuple[dict, int]:
             status,
             structure_type,
             structure_category,
+            permit_scope,
+            exterior_visibility,
             road_class,
             proposed_use,
             description,
