@@ -33,6 +33,9 @@ PERMIT_COLUMNS = [
     "STREET_NAME",
     "STREET_TYPE",
     "STREET_DIRECTION",
+    # GEO_ID is the Address Points dataset's ADDRESS_POINT_ID -- the precise geocoding key,
+    # preferred over matching on the street-name columns above (see permits_with_units.sql).
+    "GEO_ID",
     "APPLICATION_DATE",
     "ISSUED_DATE",
     "COMPLETED_DATE",

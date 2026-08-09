@@ -114,6 +114,21 @@ resolved as (
     left join {{ ref('llm_permit_scope') }} llm
         on f.permit_num = llm.permit_num
         and md5(trim(f.description)) = llm.description_hash
+),
+
+-- Fallback geocoding source for permits whose GEO_ID is missing or doesn't resolve.
+-- Deduplicated on the street key because ~3,200 four-part keys map to more than one
+-- address point (same civic number on the same street, e.g. separate land/structure
+-- points), which would otherwise fan a single permit out into several rows.
+address_points_by_street as (
+    select
+        street_num, street_name, street_type, street_direction,
+        full_address, ward, geom
+    from {{ ref('stg_address_points') }}
+    qualify row_number() over (
+        partition by street_num, street_name, street_type, street_direction
+        order by address_point_id
+    ) = 1
 )
 
 select
@@ -163,16 +178,25 @@ select
     try_cast(f.application_date as date) as application_date,
     try_cast(f.issued_date as date) as issued_date,
     try_cast(f.completed_date as date) as completed_date,
-    ap.full_address,
-    ap.ward,
-    ap.geom,
+    coalesce(ap_id.full_address, ap_str.full_address) as full_address,
+    coalesce(ap_id.ward, ap_str.ward) as ward,
+    coalesce(ap_id.geom, ap_str.geom) as geom,
     coalesce(cl.road_class, 'unknown') as road_class
+-- Geocoding is GEO_ID first, street-name match second. The permits' GEO_ID *is* the
+-- Address Points dataset's ADDRESS_POINT_ID (verified against the City's API), so it's an
+-- exact key rather than a string comparison. The street-name join alone silently dropped
+-- suffixed addresses, where the two datasets space the unit differently -- the permit says
+-- "44 A"/"2639 R", address points say "44A"/"2639R" -- so those permits geocoded to
+-- nothing and fell off the map entirely. Kept as a fallback for the minority of permits
+-- with a null or retired GEO_ID.
 from resolved f
-left join {{ ref('stg_address_points') }} ap
-    on f.street_num = ap.street_num
-    and f.street_name = ap.street_name
-    and f.street_type = ap.street_type
-    and f.street_direction = ap.street_direction
+left join {{ ref('stg_address_points') }} ap_id
+    on f.geo_id = ap_id.address_point_id
+left join address_points_by_street ap_str
+    on f.street_num = ap_str.street_num
+    and f.street_name = ap_str.street_name
+    and f.street_type = ap_str.street_type
+    and f.street_direction = ap_str.street_direction
 left join {{ ref('stg_centreline') }} cl
     on f.street_name = cl.street_name
     and f.street_type = cl.street_type

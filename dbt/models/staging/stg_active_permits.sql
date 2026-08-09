@@ -12,6 +12,7 @@ select
         when upper(trim(coalesce(street_direction, ''))) in ('', 'NONE') then ''
         else upper(trim(street_direction))
     end as street_direction,
+    try_cast(geo_id as bigint) as geo_id,
     application_date as application_date,
     issued_date as issued_date,
     completed_date as completed_date,

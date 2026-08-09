@@ -1,4 +1,5 @@
 select
+    try_cast(address_point_id as bigint) as address_point_id,
     trim(address_number) as street_num,
     upper(trim(linear_name)) as street_name,
     upper(trim(linear_name_type)) as street_type,
