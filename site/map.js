@@ -186,7 +186,11 @@ function clusterIconCreate(cluster) {
   let idx = 0;
   while (idx < clusterColorThresholds.length && count >= clusterColorThresholds[idx]) idx += 1;
   const color = SEQUENTIAL_RAMP[Math.min(idx + 1, SEQUENTIAL_RAMP.length - 1)];
-  const size = CLUSTER_SIZES[idx];
+  // Clamp like the colour above: computeBins returns five thresholds, so idx runs 0..5 --
+  // one past the last CLUSTER_SIZES entry. Unclamped, the biggest cluster in view got
+  // `width:undefinedpx`, the browser dropped the declaration, and the badge sized itself to
+  // its own text instead -- a wide, short oval on exactly the three-digit counts.
+  const size = CLUSTER_SIZES[Math.min(idx, CLUSTER_SIZES.length - 1)];
   return L.divIcon({
     html: `<div class="cluster-badge" style="width:${size}px;height:${size}px;font-size:${size >= 42 ? 13 : 11}px;background:${color}">${count}</div>`,
     className: "",
