@@ -53,7 +53,9 @@ html, body {
 .app {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  /* Leave room for the shared site header. The 0px fallback keeps the app
+     full-height if /header.js fails to load, rather than breaking. */
+  height: calc(100vh - var(--site-header-h, 0px));
 }
 
 #map-pane {
@@ -409,12 +411,12 @@ html, body {
 @media (max-width: 860px) {
   .app {
     display: block;
-    height: 100vh;
+    height: calc(100vh - var(--site-header-h, 0px));
   }
 
   #map-pane {
     position: fixed;
-    inset: 0;
+    inset: var(--site-header-h, 0px) 0 0 0;
   }
 
   .panel {
