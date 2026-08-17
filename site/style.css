@@ -325,6 +325,46 @@ html, body {
   color: var(--text-secondary);
 }
 
+.about {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.about h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.about h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 14px 0 4px;
+}
+
+.about p {
+  margin: 0 0 8px;
+}
+
+.about a {
+  color: var(--series-cleared);
+}
+
+.noscript-note {
+  margin: 0;
+  padding: 16px 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .ward-bin-row {
   display: flex;
   align-items: center;

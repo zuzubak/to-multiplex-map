@@ -110,6 +110,13 @@ Enable GitHub Pages for this repo (Settings -> Pages -> Deploy from branch -> `m
 `.github/workflows/refresh.yml` manually (Actions tab -> Run workflow) to populate
 `site/data/`.
 
+The site is served at `https://malcolmkennedy.com/to-multiplex-map/`. That URL is
+hardcoded in two places and must be kept in sync if the domain or path ever changes:
+the `<link rel="canonical">` / Open Graph / JSON-LD block in `site/index.html`, and
+`SITE_URL` in `export/export_geojson.py` (which regenerates `site/sitemap.xml` with a
+fresh `lastmod` on every run). `robots.txt` has to live at the domain root, so it
+belongs in the repo that serves `malcolmkennedy.com`, not this one.
+
 Add `ANTHROPIC_API_KEY` as a repo secret (Settings -> Secrets and variables -> Actions ->
 New repository secret) to enable Claude-based classification in the daily refresh. Without
 it, the `classify` step no-ops and everything falls back to the regex classifier.

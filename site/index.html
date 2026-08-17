@@ -3,7 +3,97 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Toronto Multiplex Tracker</title>
+
+  <title>Toronto Multiplex Map &mdash; New Multiplex Permits, Updated Daily</title>
+  <meta name="description" content="An interactive map of every new multiplex in Toronto: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Built from City of Toronto building permits and refreshed every day.">
+  <link rel="canonical" href="https://malcolmkennedy.com/to-multiplex-map/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Malcolm Kennedy">
+  <meta property="og:url" content="https://malcolmkennedy.com/to-multiplex-map/">
+  <meta property="og:title" content="Toronto Multiplex Map &mdash; New Multiplex Permits, Updated Daily">
+  <meta property="og:description" content="An interactive map of every new multiplex in Toronto: duplexes through six-plexes, laneway and garden suites, and secondary suites. Built from City of Toronto building permits and refreshed every day.">
+  <meta property="og:image" content="https://malcolmkennedy.com/to-multiplex-map/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Map of Toronto with thousands of dots marking new multiplex building permits, shaded by ward.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <meta name="theme-color" content="#ffffff">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Dataset",
+        "@id": "https://malcolmkennedy.com/to-multiplex-map/#dataset",
+        "name": "Toronto Multiplex Permits",
+        "description": "Every City of Toronto building permit filed since 2022 that creates 1-6 net new dwelling units: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Geocoded to an address point and joined to a ward, with each permit classified by construction scope. Refreshed daily from the City of Toronto Open Data CKAN API.",
+        "url": "https://malcolmkennedy.com/to-multiplex-map/",
+        "keywords": [
+          "Toronto",
+          "multiplex",
+          "housing",
+          "building permits",
+          "gentle density",
+          "laneway suite",
+          "zoning"
+        ],
+        "spatialCoverage": {
+          "@type": "Place",
+          "name": "Toronto, Ontario, Canada",
+          "geo": {
+            "@type": "GeoShape",
+            "box": "43.58 -79.64 43.86 -79.11"
+          }
+        },
+        "temporalCoverage": "2022-01-01/..",
+        "license": "https://open.toronto.ca/open-data-license/",
+        "isAccessibleForFree": true,
+        "creator": {
+          "@type": "Person",
+          "name": "Malcolm Kennedy",
+          "url": "https://malcolmkennedy.com/"
+        },
+        "isBasedOn": [
+          "https://open.toronto.ca/dataset/building-permits-cleared-permits/",
+          "https://open.toronto.ca/dataset/building-permits-active-permits/"
+        ],
+        "distribution": [
+          {
+            "@type": "DataDownload",
+            "encodingFormat": "application/geo+json",
+            "contentUrl": "https://malcolmkennedy.com/to-multiplex-map/data/permits.geojson"
+          },
+          {
+            "@type": "DataDownload",
+            "encodingFormat": "application/json",
+            "contentUrl": "https://malcolmkennedy.com/to-multiplex-map/data/summary.json"
+          }
+        ]
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://malcolmkennedy.com/to-multiplex-map/#app",
+        "name": "Toronto Multiplex Map",
+        "url": "https://malcolmkennedy.com/to-multiplex-map/",
+        "applicationCategory": "BrowserApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CAD" },
+        "about": { "@id": "https://malcolmkennedy.com/to-multiplex-map/#dataset" },
+        "author": {
+          "@type": "Person",
+          "name": "Malcolm Kennedy",
+          "url": "https://malcolmkennedy.com/"
+        }
+      }
+    ]
+  }
+  </script>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="style.css">
@@ -13,6 +103,14 @@
   <div class="app">
     <main id="map-pane">
       <div id="map"></div>
+      <noscript>
+        <p class="noscript-note">
+          This map needs JavaScript to draw. The underlying data is available
+          without it as
+          <a href="data/permits.geojson">permits.geojson</a> and
+          <a href="data/summary.json">summary.json</a>.
+        </p>
+      </noscript>
     </main>
 
     <aside class="panel" id="panel">
@@ -28,7 +126,7 @@
 
       <div class="panel-scroll">
         <header class="panel-header">
-          <h1>Toronto Multiplex Tracker</h1>
+          <h1>Toronto Multiplex Map</h1>
           <span class="subtitle" id="last-updated">Loading&hellip;</span>
           <div class="stats" id="stats"></div>
         </header>
@@ -116,6 +214,65 @@
             construction is complete.
           </p>
         </div>
+
+        <section class="about">
+          <h2>About this map</h2>
+
+          <p>
+            This is a map of every newly built or permitted multiplex in Toronto,
+            refreshed daily from the City's Open Data. Each dot is one permit that
+            creates between one and six net new homes &mdash; a duplex, triplex,
+            fourplex, five- or six-plex, a laneway or garden suite, or a secondary
+            suite in an existing house. Wards are shaded by how many net new units
+            their permits add up to.
+          </p>
+
+          <h3>What's included</h3>
+          <p>
+            Toronto legalized fourplexes citywide in 2023 and extended as-of-right
+            permissions up to six units in parts of the city in 2024, so the map caps
+            at six units per permit to match. A permit is included when it creates at
+            least one dwelling unit and its proposed use is not a single-family
+            detached house.
+          </p>
+
+          <h3>Why some permits aren't new buildings</h3>
+          <p>
+            A permit's structure type only records how many units result, not how much
+            got built &mdash; "2 Unit&nbsp;&ndash;&nbsp;Detached" covers both a
+            ground-up duplex and a basement apartment legalized inside an existing
+            house. Two thirds of multiplex-scale permits (2022&ndash;2026) are secondary
+            suites or interior-only work on an existing home. For that reason, the map
+            classifies each permit on two independent axes: the form of the new unit,
+            and whether the building was newly constructed, converted, or only altered
+            inside. Interior-only permits are hidden by default; turn them on with the
+            <strong>Construction type</strong> filter above.
+          </p>
+
+          <h3>Where the data comes from</h3>
+          <p>
+            Everything is pulled straight from Toronto Open Data &mdash; the
+            <a href="https://open.toronto.ca/dataset/building-permits-active-permits/">active</a>
+            and
+            <a href="https://open.toronto.ca/dataset/building-permits-cleared-permits/">cleared</a>
+            building permit datasets, geocoded against the City's municipal address
+            points and joined to
+            <a href="https://open.toronto.ca/dataset/city-wards/">ward boundaries</a>.
+            A scheduled job refreshes the whole chain daily. You can download the exact
+            data behind the map as
+            <a href="data/permits.geojson" download>GeoJSON</a>, and the code that
+            builds it is
+            <a href="https://github.com/zuzubak/to-multiplex-map">on GitHub</a>.
+          </p>
+
+          <h3>Caveats worth knowing</h3>
+          <p>
+            A permit is not a finished building &mdash; active permits may stall or be
+            abandoned, and cleared permits are the only ones confirmed complete.
+            Permits whose address can't be matched to an address point are counted in
+            the ward totals but can't be drawn as points.
+          </p>
+        </section>
       </div>
     </aside>
   </div>

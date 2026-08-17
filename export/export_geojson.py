@@ -12,7 +12,10 @@ from pathlib import Path
 import duckdb
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "warehouse.duckdb"
-SITE_DATA_DIR = Path(__file__).resolve().parent.parent / "site" / "data"
+SITE_DIR = Path(__file__).resolve().parent.parent / "site"
+SITE_DATA_DIR = SITE_DIR / "data"
+
+SITE_URL = "https://malcolmkennedy.com/to-multiplex-map/"
 
 
 def build_permits_geojson(con: duckdb.DuckDBPyConnection) -> tuple[dict, int]:
@@ -116,6 +119,25 @@ def build_summary(con: duckdb.DuckDBPyConnection, unmatched: int) -> dict:
     }
 
 
+def build_sitemap() -> str:
+    """A one-URL sitemap whose lastmod tracks the daily refresh.
+
+    Crawlers use lastmod to decide how often to come back; a static file would
+    freeze at whatever date it was committed and undersell how fresh the map is.
+    """
+    today = datetime.now(timezone.utc).date().isoformat()
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        "  <url>\n"
+        f"    <loc>{SITE_URL}</loc>\n"
+        f"    <lastmod>{today}</lastmod>\n"
+        "    <changefreq>daily</changefreq>\n"
+        "  </url>\n"
+        "</urlset>\n"
+    )
+
+
 def main() -> None:
     SITE_DATA_DIR.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(DB_PATH))
@@ -130,6 +152,7 @@ def main() -> None:
     (SITE_DATA_DIR / "permits.geojson").write_text(json.dumps(permits_geojson))
     (SITE_DATA_DIR / "wards.geojson").write_text(json.dumps(wards_geojson))
     (SITE_DATA_DIR / "summary.json").write_text(json.dumps(summary, indent=2))
+    (SITE_DIR / "sitemap.xml").write_text(build_sitemap())
 
     print(f"Wrote {len(permits_geojson['features'])} permit features "
           f"({unmatched} unmatched to an address dropped)")
