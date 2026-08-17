@@ -71,7 +71,10 @@ html, body {
 
 .panel {
   flex: 0 0 380px;
-  height: 100vh;
+  /* 100% of .app, which already subtracts the shared header. Using 100vh here
+     overflows the app by the header's height and gives the document a second
+     scrollbar. */
+  height: 100%;
   overflow-y: auto;
   background: var(--surface-1);
   border-left: 1px solid var(--border);
