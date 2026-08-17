@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-08-17T17:51:15+00:00",
+  "last_updated": "2026-08-17T18:56:29+00:00",
   "totals_by_status": [
     {
       "status": "active",
-      "permit_count": 2836,
-      "net_units_created": 4805
+      "permit_count": 2829,
+      "net_units_created": 4780
     },
     {
       "status": "cleared",
