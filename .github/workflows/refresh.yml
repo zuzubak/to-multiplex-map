@@ -72,6 +72,16 @@ jobs:
         with:
           ref: master
 
+      # config.js is gitignored, so the deployed copy is written here from the secret.
+      - name: Write basemap config
+        env:
+          CARTO_API_KEY: ${{ secrets.CARTO_API_KEY }}
+        run: |
+          if [ -z "$CARTO_API_KEY" ]; then
+            echo "::warning::CARTO_API_KEY secret is not set; falling back to the keyless CARTO endpoint."
+          fi
+          echo "window.CARTO_API_KEY = \"$CARTO_API_KEY\";" > site/config.js
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

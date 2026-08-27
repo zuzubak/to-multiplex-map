@@ -8,3 +8,6 @@ dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
 .DS_Store
+
+# Basemap API key -- real values never committed (see site/config.example.js)
+site/config.js

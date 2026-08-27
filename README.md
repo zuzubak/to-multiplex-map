@@ -99,9 +99,21 @@ cd dbt && dbt build --profiles-dir . && cd ..
 
 python export/export_geojson.py
 
+cp site/config.example.js site/config.js   # then paste your CARTO key into it
 cd site && python -m http.server 8000
 # open http://localhost:8000
 ```
+
+### Basemap key
+
+CARTO gates its basemap tiles behind an API key. `site/config.js` holds it and is
+gitignored; the deploy job writes its own copy from the `CARTO_API_KEY` repo secret
+(Settings -> Secrets and variables -> Actions). Without a key the map falls back to
+CARTO's legacy keyless endpoint, which still works but is on its way out.
+
+The key is a client-side key -- it ships in the page to every visitor, and no build
+setup changes that. Treat it as public and lock it down by domain in the CARTO
+dashboard instead.
 
 ## Deploying
 

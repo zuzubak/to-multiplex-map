@@ -2,7 +2,16 @@
 // MapLibre GL JS required it and failed outright on at least one real Chrome install with
 // GPU disabled). Renders raster tiles as plain img tags and overlays via Canvas2D/SVG, so it
 // works everywhere.
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+// CARTO now gates its basemaps behind an API key. The key lives in config.js, which is
+// gitignored and written by CI from the CARTO_API_KEY secret -- it still ships to the
+// browser (any client-side basemap key does), so restrict it by domain in the CARTO
+// dashboard rather than treating it as a secret. Falls back to the legacy keyless
+// endpoint so a missing config.js degrades to a working map instead of a blank one.
+const CARTO_KEY = (window.CARTO_API_KEY || "").trim();
+const TILE_URL = CARTO_KEY
+  ? "https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png?key=" +
+    encodeURIComponent(CARTO_KEY)
+  : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
   '&copy; <a href="https://carto.com/attributions">CARTO</a>';
