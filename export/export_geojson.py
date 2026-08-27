@@ -28,14 +28,10 @@ def build_permits_geojson(con: duckdb.DuckDBPyConnection) -> tuple[dict, int]:
             structure_category,
             construction_type,
             unit_form,
-            exterior_visibility,
             road_class,
             proposed_use,
             description,
             dwelling_units_created,
-            nullif(dwelling_units_lost, 0) as dwelling_units_lost,
-            net_units_created,
-            unit_bucket,
             full_address,
             ward,
             application_date,
@@ -94,7 +90,7 @@ def build_summary(con: duckdb.DuckDBPyConnection, unmatched: int) -> dict:
         select
             status,
             count(*) as permit_count,
-            sum(net_units_created) as net_units_created
+            sum(dwelling_units_created) as units_created
         from multiplex_permits
         group by status
         """
@@ -110,7 +106,7 @@ def build_summary(con: duckdb.DuckDBPyConnection, unmatched: int) -> dict:
     return {
         "last_updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "totals_by_status": [
-            {"status": status, "permit_count": permit_count, "net_units_created": units}
+            {"status": status, "permit_count": permit_count, "units_created": units}
             for status, permit_count, units in totals
         ],
         "unmatched_address_count": unmatched,

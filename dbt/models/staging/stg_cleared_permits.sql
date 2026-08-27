@@ -22,11 +22,21 @@ select
     current_use as current_use,
     proposed_use as proposed_use,
     dwelling_units_created as dwelling_units_created,
-    dwelling_units_lost as dwelling_units_lost,
     residential as residential_area,
     'cleared' as source_status
 from {{ source('raw', 'cleared_permits') }}
+-- Ties on the integer cast are real and they matter: the source carries an
+-- administrative "Deferred Fees from folder ..." stub at revision_num '0' alongside the
+-- actual permit at '00', and both cast to 0. The stub has NULL structure_type, work and
+-- dwelling_units_created, so whenever the tie broke its way the permit failed the
+-- units-created filter downstream and disappeared from the map entirely -- 139 permits
+-- flickering in and out between runs. Break the tie toward the row that actually carries
+-- permit data, then on the raw string, so the result is deterministic.
 qualify row_number() over (
     partition by permit_num
-    order by try_cast(revision_num as integer) desc
+    order by
+        try_cast(revision_num as integer) desc nulls last,
+        case when dwelling_units_created is null then 1 else 0 end,
+        case when structure_type is null then 1 else 0 end,
+        revision_num desc
 ) = 1

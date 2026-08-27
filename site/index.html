@@ -29,7 +29,7 @@
         "@type": "Dataset",
         "@id": "https://malcolmkennedy.com/to-multiplex-map/#dataset",
         "name": "Toronto Multiplex Permits",
-        "description": "Every City of Toronto building permit filed since 2022 that creates 1-6 net new dwelling units: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Geocoded to an address point and joined to a ward, with each permit classified by construction scope. Refreshed daily from the City of Toronto Open Data CKAN API.",
+        "description": "Every City of Toronto building permit filed since 2022 that creates 1-6 dwelling units: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Geocoded to an address point and joined to a ward, with each permit classified by where its new units come from. Refreshed daily from the City of Toronto Open Data CKAN API.",
         "url": "https://malcolmkennedy.com/to-multiplex-map/",
         "keywords": [
           "Toronto",
@@ -156,10 +156,11 @@
 
           <div class="filter-group">
             <span class="filter-group-label">Construction type</span>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="new_construction">New construction</button>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="conversion">Conversion / addition</button>
-            <button class="filter-chip" data-active="false" data-group="scope" data-value="interior_only">Interior alteration</button>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="unclear">Unclear from description</button>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="new_building">New building</button>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="laneway_garden_suite">Laneway / garden suite</button>
+            <button class="filter-chip" data-active="false" data-group="scope" data-value="basement_units">New basement unit(s)</button>
+            <button class="filter-chip" data-active="true" data-group="scope" data-value="aboveground_units">New aboveground unit(s)</button>
+            <button class="filter-chip" data-active="false" data-group="scope" data-value="unclear">Unclear from description</button>
           </div>
 
           <div class="filter-group">
@@ -192,7 +193,7 @@
 
         <div class="legend">
           <div id="ward-legend-section">
-            <h2>Net new units by ward</h2>
+            <h2>Units created by ward</h2>
             <div id="ward-bins"></div>
             <hr>
           </div>
@@ -206,7 +207,7 @@
             <span>Cleared (completed)</span>
           </div>
           <div class="legend-row">
-            <span style="color: var(--text-muted)">Point size &asymp; net units created</span>
+            <span style="color: var(--text-muted)">Point size &asymp; units created</span>
           </div>
           <p class="legend-note">
             <strong>Active</strong>: permit issued, construction underway or about to
@@ -221,9 +222,9 @@
           <p>
             This is a map of every newly built or permitted multiplex in Toronto since
             2022, refreshed daily from the City's Open Data. Each dot is one permit that
-            creates between one and six net new homes &mdash; a duplex, triplex,
+            creates between one and six homes &mdash; a duplex, triplex,
             fourplex, five- or six-plex, a laneway or garden suite, or a secondary
-            suite in an existing house. Wards are shaded by how many net new units
+            suite in an existing house. Wards are shaded by how many units
             their permits add up to.
           </p>
 
@@ -231,22 +232,39 @@
           <p>
             Toronto legalized fourplexes citywide in 2023 and extended as-of-right
             permissions up to six units in parts of the city in 2024, so the map caps
-            at six units per permit to match. A permit is included when it creates at
-            least one dwelling unit and its proposed use is not a single-family
-            detached house.
+            at six units per permit to match. A permit is included when the City
+            records it as creating at least one dwelling unit and its structure type is
+            not a single-family detached house.
           </p>
 
           <h3>Why some permits aren't new buildings</h3>
           <p>
             A permit's structure type only records how many units result, not how much
-            got built &mdash; "2 Unit&nbsp;&ndash;&nbsp;Detached" covers both a
-            ground-up duplex and a basement apartment legalized inside an existing
-            house. Two thirds of multiplex-scale permits (2022&ndash;2026) are secondary
-            suites or interior-only work on an existing home. For that reason, the map
-            classifies each permit on two independent axes: the form of the new unit,
-            and whether the building was newly constructed, converted, or only altered
-            inside. Interior-only permits are hidden by default; turn them on with the
-            <strong>Construction type</strong> filter above.
+            got built &mdash; "2 Unit&nbsp;&ndash;&nbsp;Detached" covers a ground-up
+            duplex, a basement apartment legalized inside an existing house, and a
+            garden suite behind one. Most multiplex-scale permits (2022&ndash;2026) are
+            not new buildings. So each permit is also classified by <em>where its new
+            units come from</em>, read from the permit's own description:
+          </p>
+          <ul>
+            <li><strong>New building</strong> &mdash; a whole new building, including
+              demolishing something first and rebuilding.</li>
+            <li><strong>Laneway / garden suite</strong> &mdash; a separate small
+              dwelling in the back yard, often built over or inside an existing garage.</li>
+            <li><strong>New basement unit(s)</strong> &mdash; a unit added in the
+              basement of a building that was already standing. Hidden by default: it's
+              the most common permit here and the least visible change, and it's the
+              same act whether the house above it was a single-family home or already a
+              triplex.</li>
+            <li><strong>New aboveground unit(s)</strong> &mdash; a unit added above
+              grade in a building that was already standing, by interior conversion or
+              an addition.</li>
+          </ul>
+          <p>
+            Turn any of them on or off with the <strong>Construction type</strong>
+            filter above. Permits whose description describes no new unit at all &mdash;
+            a deck, a porch, a garage rebuild &mdash; are left off the map entirely,
+            even where the City's own unit count says otherwise.
           </p>
 
           <h3>Where the data comes from</h3>
@@ -271,6 +289,12 @@
             abandoned, and cleared permits are the only ones confirmed complete.
             Permits whose address can't be matched to an address point are counted in
             the ward totals but can't be drawn as points.
+          </p>
+          <p>
+            Unit counts are gross, not net. The City publishes a "dwelling units lost"
+            figure but leaves it at zero on virtually every permit, so there is no
+            reliable way to subtract what a demolition removed. A permit that tears down
+            a house and builds a fourplex counts as four units here, not three.
           </p>
         </section>
       </div>

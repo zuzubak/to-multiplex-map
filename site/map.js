@@ -35,10 +35,15 @@ function formatCompact(n) {
   return new Intl.NumberFormat("en-CA", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
+// The construction-type axis: WHERE a permit's new units come from. Set by
+// classify/classify_permits.py (see its module docstring for why these values). The two
+// things people most want out of a "multiplex" map -- a basement suite added to a house
+// that already stood, and an accessory suite in the back yard -- are each one chip here.
 const SCOPE_LABELS = {
-  new_construction: "New construction",
-  conversion: "Conversion / addition",
-  interior_only: "Interior alteration (no exterior change)",
+  new_building: "New building",
+  laneway_garden_suite: "Laneway / garden suite",
+  basement_units: "Addition of new basement unit(s)",
+  aboveground_units: "Addition of new aboveground unit(s)",
   unclear: "Unclear from description",
 };
 
@@ -53,9 +58,7 @@ function popupContent(properties) {
   const rows = [
     ["Status", properties.status === "active" ? "Active (in progress)" : "Cleared (completed)"],
     ["Units created", properties.dwelling_units_created],
-    ["Units lost", properties.dwelling_units_lost],
-    ["Net new units", properties.net_units_created],
-    ["Construction type", SCOPE_LABELS[properties.exterior_visibility] || properties.exterior_visibility],
+    ["Construction type", SCOPE_LABELS[properties.construction_type] || properties.construction_type],
     ["Structure", properties.structure_category],
     ["Structure type (raw)", properties.structure_type],
     ["Street type", properties.road_class],
@@ -391,7 +394,7 @@ function buildPointLayers(permits) {
     const latlng = L.latLng(lat, lng);
     const status = feature.properties.status;
     const color = status === "active" ? "#eb6834" : status === "cleared" ? "#2a78d6" : "#898781";
-    const units = feature.properties.net_units_created || 1;
+    const units = feature.properties.dwelling_units_created || 1;
 
     let layer;
     if (mobile) {
@@ -459,16 +462,19 @@ const filterState = {
   layers: { wards: true, active: true, cleared: true },
   roadClass: new Set(["major", "minor", "unknown"]),
   structure: new Set(),
-  // "interior_only" (renovation inside an existing building, no addition/new construction
-  // -- most commonly, but not exclusively, a basement/secondary suite) starts off: it's the
-  // majority of permits in outlying wards and isn't confirmable from Street View, so it would
-  // otherwise swamp the map. This is the construction-type/scope-of-work axis, independent
-  // of the "House + secondary suite" structure-type filter below -- a basement suite can be
-  // interior_only (retrofit into an old house) or new_construction (built into a brand-new
-  // house), see structure/scope split in permits_with_units.sql. Chip in index.html is
-  // marked data-active="false" to match -- see setupChipFilters below, which reads that
-  // starting state rather than assuming everything starts on.
-  scope: new Set(["new_construction", "conversion", "unclear"]),
+  // The construction-type axis (SCOPE_LABELS above). Two values start OFF:
+  //   basement_units -- adding a basement unit to a building that already stood is the
+  //     single most common permit on this map and isn't confirmable from Street View, so
+  //     it swamps everything else if shown by default. It's also the case the map is least
+  //     about: a basement apartment isn't a multiplex, whether the house above it was an
+  //     SFD or already a triplex.
+  //   unclear -- descriptions too thin to classify; kept available rather than silently
+  //     dropped, but not shown by default.
+  // This axis is independent of the structure filter below: a laneway suite and a duplex
+  // are different structures, but "new building" describes either one.
+  // Chips in index.html carry data-active="false" to match -- setupChipFilters reads each
+  // chip's own starting state rather than assuming everything starts on.
+  scope: new Set(["new_building", "laneway_garden_suite", "aboveground_units"]),
   monthRange: [0, 0], // indices into `months`
 };
 
@@ -501,7 +507,7 @@ function passesNonDateFilters(props) {
   if (props.status === "cleared" && !filterState.layers.cleared) return false;
   if (!filterState.roadClass.has(props.road_class)) return false;
   if (!filterState.structure.has(props.structure_category)) return false;
-  if (!filterState.scope.has(props.exterior_visibility)) return false;
+  if (!filterState.scope.has(props.construction_type)) return false;
   return true;
 }
 
@@ -529,11 +535,11 @@ function renderStats(features) {
   for (const f of features) {
     if (f.properties.status === "active") activeCount += 1;
     else if (f.properties.status === "cleared") clearedCount += 1;
-    totalUnits += f.properties.net_units_created || 0;
+    totalUnits += f.properties.dwelling_units_created || 0;
   }
 
   const tiles = [
-    { label: "Net new units", value: totalUnits },
+    { label: "Units created", value: totalUnits },
     { label: "Permits tracked", value: features.length },
     { label: "Active permits", value: activeCount },
     { label: "Cleared permits", value: clearedCount },
@@ -557,11 +563,11 @@ function renderStats(features) {
 }
 
 function renderWardShading(features) {
-  const totals = new Map(); // ward name -> net units
+  const totals = new Map(); // ward name -> units created
   for (const f of features) {
     const ward = f.properties.ward;
     if (!ward) continue;
-    totals.set(ward, (totals.get(ward) || 0) + (f.properties.net_units_created || 0));
+    totals.set(ward, (totals.get(ward) || 0) + (f.properties.dwelling_units_created || 0));
   }
 
   const values = [...wardFeaturesByName.keys()].map((name) => totals.get(name) || 0);

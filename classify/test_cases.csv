@@ -1,0 +1,25 @@
+# Hand-labelled permits used to check the classifier, from a manual audit of the live map.
+# Each row is a permit whose classification was visibly wrong on the map before the
+# construction_type taxonomy was rebuilt, plus the label it should now get.
+# Run `python classify/check_test_cases.py` to score the LLM (needs ANTHROPIC_API_KEY)
+# and the regex fallback against these.
+#
+# expect_regex is what the fallback in permits_with_units.sql can reasonably reach without
+# an API key. It deliberately never assigns no_unit_change -- that value deletes a permit
+# from the map, and keyword matching shouldn't make that call -- so the three no_unit_change
+# rows expect basement_units from the regex and are only fully right under the LLM.
+permit_num,address,expect_construction_type,expect_regex,note
+22 185286 BLD,81 Thirty Fifth St,laneway_garden_suite,laneway_garden_suite,garden suite; City coded structure_type 2 Unit - Detached so it rendered as Duplex
+23 208461 BLD,252 Sheldon Ave,laneway_garden_suite,laneway_garden_suite,garage-to-garden-suite; rendered as Duplex
+22 231313 BLD,936 Scarlett Rd,laneway_garden_suite,laneway_garden_suite,garden suite above existing garage; rendered as Duplex
+24 150502 BLD,216 Silverthorn Ave,laneway_garden_suite,laneway_garden_suite,garage-to-laneway-suite; rendered as Duplex
+21 130715 BLD,948 Carlaw Ave,new_building,new_building,new 3-storey dwelling; basement suite added by revision must not demote it
+24 138797 BLD,3 Graceland Crt,basement_units,basement_units,two units in the basement of an existing SFD
+24 241279 BLD,1 Carswell Pl,aboveground_units,aboveground_units,integral (attached) garage to secondary unit -- above grade not a laneway suite
+22 106823 BLD,19 Ovida Ave,basement_units,basement_units,second suite in the lower level of an existing back-split
+23 223710 BLD,451 Lansdowne Ave,basement_units,basement_units,existing basement into two secondary units
+24 121767 BLD,158 Indian Grv,basement_units,basement_units,existing triplex to fourplex via a basement unit; fourplex must not read as new build
+17 247155 BLD,2374 Gerrard St E,basement_units,basement_units,basement storage converted to a 4th unit
+24 250720 BLD,19 Arrowsmith Ave,no_unit_change,basement_units,interior alterations plus rear/side addition; no unit described
+22 161111 BLD,108 Sammon Ave,no_unit_change,basement_units,underpinning additions garage and deck; no unit described
+25 110201 BLD,52 Delemere Ave,no_unit_change,basement_units,alterations plus second floor addition; names existing units creates none

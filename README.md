@@ -43,42 +43,86 @@ restricted to the columns this project needs.
 ## Filtering logic (ported from `to-housing`)
 
 - A permit counts if it created dwelling units (`DWELLING_UNITS_CREATED > 0`) and its
-  proposed use isn't a single-family detached home (`PROPOSED_USE` not like `%Sfd%` /
-  `%Single%`).
-- "Multiplex" scope is 1-6 net new units per permit (`dbt/models/marts/multiplex_permits.sql`),
-  covering secondary suites through six-plexes -- the cap matches Toronto's 2024 "Expanding
-  Housing Options" zoning update, which extended as-of-right multiplex permissions from 4
-  units up to 6 on larger lots. Each feature keeps its exact unit count (`unit_bucket`) so
-  the map isn't lossy about it.
-- Permits are geocoded by joining `STREET_NUM/NAME/TYPE/DIRECTION` against address
-  points, same join key as the original repo's `new_units.sql`.
-- `STRUCTURE_TYPE` only encodes the resulting unit count/form, not the scope of work --
-  `2 Unit - Detached` covers both a genuine new-build duplex and a basement suite legalized
-  inside an existing house. `permits_with_units.sql` classifies each permit's own
-  `DESCRIPTION` field into two INDEPENDENT axes -- they used to be a single conflated value,
-  which was wrong: a basement suite can be part of a brand-new house just as easily as a
-  retrofit into an old one, so "mentions a basement" doesn't imply "nothing new was built."
-  - `unit_form` (`basement_or_secondary_suite` / `standard`) -- is the extra unit a
-    basement/secondary suite tucked into an otherwise single-family-scaled house, as opposed
-    to a true duplex/triplex/laneway-suite form? Feeds `structure_category`: a "2 Unit"
-    permit with `basement_or_secondary_suite` shows as "House + secondary suite" rather than
-    "Duplex (2 units)".
-  - `construction_type` / `exterior_visibility` (`new_construction` / `conversion` /
-    `interior_only` / `unclear`) -- was the building itself newly built or altered? Based on
-    a manual audit that found ~65% of citywide multiplex-scale permits -- and a higher share
-    on minor streets in outlying wards -- were basement/secondary suites or interior-only
-    work on an *existing* house, not new buildings. The map's "Construction type" filter
-    hides `interior_only` by default for this reason -- but a basement suite built as part of
-    a brand-new house (e.g. a new SFD with a legal basement unit added by revision) is
-    correctly `new_construction`, not hidden.
+  `STRUCTURE_TYPE` isn't a single-family detached home (`not like 'SFD%'`), with one
+  exception: a permit whose `WORK` is explicitly `Second Suite (New)` or
+  `New Laneway / Rear Yard Suite` is kept even under an `SFD` structure type, because a
+  few dozen genuine suite permits carry an un-updated one.
+- There is deliberately **no** filter on `PROPOSED_USE`. There used to be (`not like
+  '%Sfd%'` / `'%Single%'`) and it was a substring bug that silently dropped **1,505
+  genuine multiplex permits** -- a ~32% undercount. The City writes the *resulting* use of
+  an accessory-unit permit as `Sfd + Garden Suite`, `Sfd-Detached/Laneway Suite`,
+  `2 Unit Sfd` or `Single Family + Laneway Suite`, so matching the substring "sfd" threw
+  out 745 permits whose structure type was `Laneway / Rear Yard Suite` and 550 whose
+  structure type was `2 Unit - Detached`. `STRUCTURE_TYPE` already does this job correctly.
+- "Multiplex" scope is 1-6 units created per permit
+  (`dbt/models/marts/multiplex_permits.sql`), covering secondary suites through
+  six-plexes -- the cap matches Toronto's 2024 "Expanding Housing Options" zoning update,
+  which extended as-of-right multiplex permissions from 4 units up to 6 on larger lots.
+- **Unit counts are gross, not net.** `DWELLING_UNITS_LOST` is 0 on 11,749 of the 11,761
+  unit-creating permits the City publishes -- it simply isn't populated. The old
+  `net_units_created` / `dwelling_units_lost` / `unit_bucket` columns have been removed
+  rather than left around looking authoritative: "net" was always just a copy of the gross
+  figure, and the claim that it accounted for teardown-rebuilds was false. A permit that
+  demolishes a house and builds a fourplex counts as 4 here, not 3;
+  `construction_type = 'new_building'` is the honest signal for that.
+- Permits are geocoded by `GEO_ID` against address points, falling back to a
+  `STREET_NUM/NAME/TYPE/DIRECTION` join.
+
+## Classification
+
+`STRUCTURE_TYPE` records how many units *result*, not how much got built -- `2 Unit -
+Detached` covers a ground-up duplex, a basement apartment legalized inside an existing
+house, and a garden suite behind one. (It is reliably the **ending** state, not the
+starting one: on permits where `CURRENT_USE` and `PROPOSED_USE` disagree it matches the
+proposed value 4,850 times against 154 for the current value. Its real weakness is
+staleness -- 34% of unit-creating permits have `CURRENT_USE == PROPOSED_USE` despite
+creating units.) So each permit is classified on two INDEPENDENT axes from its own
+`DESCRIPTION`, plus the City's coded `WORK` / `CURRENT_USE` / `PROPOSED_USE` fields:
+
+- `unit_form` (`basement_or_secondary_suite` / `standard`) -- is the added unit a
+  subordinate suite tucked into an otherwise single-family-scaled house, as opposed to a
+  building of peer units? Feeds `structure_category`: a "2 Unit" permit with
+  `basement_or_secondary_suite` shows as "House + secondary suite", not "Duplex (2 units)".
+- `construction_type` -- **where the new units come from**. This replaced an older pair of
+  overlapping fields (`construction_type` + `exterior_visibility`) that split the same
+  judgment two ways and disagreed with each other:
+  - `new_building` -- a whole new building, including demolish-and-rebuild. Wins over
+    where the new building's units sit: a new house with a basement suite designed in is
+    `new_building`, not `basement_units`.
+  - `laneway_garden_suite` -- a detached accessory dwelling in the rear yard, including
+    garage conversions. Detected from the description, **not** `STRUCTURE_TYPE`: the City
+    codes a meaningful minority of these as `2 Unit - Detached` (the lot does end up with
+    two units), which used to make "Proposal to construct a garden suite above existing
+    garage" render as "Duplex (2 units)".
+  - `basement_units` -- new unit(s) in the basement of a building already standing.
+    Deliberately cuts across what the building was before: adding a basement unit to a
+    single-family house and adding one to an existing triplex are the same act. Hidden by
+    default on the map -- it's the most common permit and the least visible change.
+  - `aboveground_units` -- new unit(s) above grade in a building already standing
+    (interior conversion, addition, integral-garage conversion). Collapses what used to be
+    three separate values.
+  - `no_unit_change` -- the description describes no unit being created (a deck, a porch,
+    a garage rebuild). **Excluded from the map entirely**, even where the City's own unit
+    count says otherwise. Only the LLM assigns this; the regex fallback never does, so a
+    run without an API key drops nothing.
+  - `unclear` -- not enough text to tell. Kept, filterable, off by default.
 - Both fields come from `classify/classify_permits.py` (Claude Haiku, structured JSON
   output), not a regex -- descriptions are messy free text (typos, ALL CAPS, truncation,
-  ambiguous phrasing) and a regex heuristic mis-sorted a meaningful share of edge cases.
-  Results are cached in `dbt/seeds/llm_permit_scope.csv`, keyed by permit number + a hash of
-  the description, so each daily run only pays to classify permits that are new or whose
-  description changed -- not the whole dataset. `permits_with_units.sql` still carries the
-  original regex as a fallback, used for any permit not yet in the cache (including every
-  permit, on a run with no `ANTHROPIC_API_KEY` set -- e.g. local dev).
+  ambiguous phrasing) and a regex heuristic mis-sorts a meaningful share of edge cases.
+  The permit's `WORK` field is passed to the model as context: it's the City's controlled
+  vocabulary for scope of work, filled in by the plans examiner, and it disambiguates the
+  most common failure in prose -- "propose to construct a secondary unit in the basement"
+  uses the word "construct" for work that builds no new building.
+  Results are cached in `dbt/seeds/llm_permit_scope.csv`, keyed by permit number + a hash
+  of the description, so each daily run only pays to classify permits that are new or
+  whose description changed. `permits_with_units.sql` carries a regex fallback used for
+  any permit not yet in the cache (including every permit, on a run with no
+  `ANTHROPIC_API_KEY` -- e.g. local dev).
+- `classify/test_cases.csv` holds hand-labelled permits from a manual audit of the live
+  map, each one a case the old taxonomy got visibly wrong. Score both classifiers against
+  them with `python classify/check_test_cases.py` (needs `dbt build` to have run; the LLM
+  half needs `ANTHROPIC_API_KEY`). It exits non-zero on a regression, so it's usable as a
+  check on prompt edits.
 
 ## Running locally
 

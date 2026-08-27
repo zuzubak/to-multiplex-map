@@ -1,17 +1,43 @@
 """Classify permits by unit form and construction scope using Claude, caching
 results as a dbt seed.
 
-Two independent judgments per permit -- they used to be forced into a single
-enum value (e.g. "basement_suite"), which conflated a structural fact (is the
-extra unit a basement/secondary suite tucked into a house) with a scope-of-work
-fact (was the building itself newly built or altered). Those are orthogonal: a
-basement suite can be part of a brand-new house (123 Edgecroft Rd) just as
-easily as a retrofit into an old one (11 Waterbridge Way), so a description
-that mentions "basement" no longer forces an "alteration" conclusion.
+Two independent judgments per permit:
 
-- unit_form: basement_or_secondary_suite | standard -- structural, feeds
-  structure_category in permits_with_units.sql.
-- construction_type: feeds exterior_visibility (what's hidden by default).
+- unit_form: basement_or_secondary_suite | standard -- structural. Is the extra
+  unit a subordinate suite tucked into a house, or is this a building of peer
+  units? Feeds structure_category in permits_with_units.sql.
+
+- construction_type: WHERE the new units come from. This is the map's main
+  filter axis, and it replaced an older pair of overlapping fields
+  (construction_type + exterior_visibility) that split the same judgment two
+  ways and disagreed with each other. The values are chosen so that the two
+  things people most want to exclude from a "multiplex" map -- a basement suite
+  added to a house that already stood, and an accessory suite in the back yard
+  -- are each a single filter chip:
+
+    new_building          a whole new building, including demolish-and-rebuild
+    laneway_garden_suite  a detached accessory suite in the rear yard
+    basement_units        new unit(s) in the basement of a building already standing
+    aboveground_units     new unit(s) above grade in a building already standing
+    no_unit_change        the description describes no unit being created at all
+    unclear               not enough text to tell
+
+  basement_units deliberately cuts across what the building was before: adding a
+  basement unit to a single-family house and adding one to an existing triplex
+  are the same act, and the map should be able to hide both with one click.
+
+  no_unit_change removes the permit from the map downstream, so it is reserved
+  for descriptions that affirmatively describe work with no unit creation (a
+  deck, a porch, a garage rebuild). Anything merely thin or truncated is
+  unclear, not no_unit_change.
+
+The permit's own WORK / CURRENT_USE / PROPOSED_USE fields are passed to the
+model alongside the description. WORK in particular is the City's controlled
+vocabulary for scope of work ('Second Suite (New)', 'New Laneway / Rear Yard
+Suite', 'New Building', 'Interior Alterations'), filled in by the plans
+examiner, and it disambiguates the single most common failure in prose: "propose
+to construct a secondary unit in the basement" uses the word "construct" for
+work that builds no new building.
 
 Runs after ingest, before `dbt build`. Only calls the API for permits whose
 (permit_num, description) combination isn't already in the seed cache -- so a
@@ -43,39 +69,34 @@ BATCH_SIZE = 20
 
 UNIT_FORMS = ["basement_or_secondary_suite", "standard"]
 CONSTRUCTION_TYPES = [
-    "new_construction_teardown",
-    "new_construction",
-    "garden_suite",
-    "conversion",
-    "addition",
-    "alteration",
-    "severance",
+    "new_building",
+    "laneway_garden_suite",
+    "basement_units",
+    "aboveground_units",
+    "no_unit_change",
     "unclear",
 ]
 
-SYSTEM_PROMPT = """You are classifying City of Toronto building permits for a map that tracks new multiplex construction (duplexes through six-unit buildings). For each permit, read its own description and report two INDEPENDENT judgments:
+SYSTEM_PROMPT = """You are classifying City of Toronto building permits for a map that tracks new multiplex housing (duplexes through six-unit buildings). Each permit comes with its free-text DESCRIPTION plus three of the City's own coded fields: WORK (the plans examiner's scope-of-work category), CURRENT_USE (what was there before) and PROPOSED_USE (what is there after). Report two INDEPENDENT judgments per permit.
 
-1. unit_form -- is the extra unit specifically a basement suite, or an otherwise-unspecified "secondary/second suite" (one subordinate unit tucked into what is fundamentally still a single-family-scaled house)? Or is the structure a standard multi-unit form?
-   - basement_or_secondary_suite: description identifies the extra unit as being in a basement, or as a "secondary suite"/"second suite"/"2nd unit"/"2nd dwelling unit" without specifying elsewhere -- a house with one accessory unit added, not a building designed as multiple peer units.
-   - standard: everything else -- a true duplex/triplex/fourplex (built new or converted as such, with peer units, not one house plus one accessory suite), a laneway/garden suite, a larger multi-unit building, mixed use, etc.
+1. unit_form -- what FORM does the resulting housing take?
+   - basement_or_secondary_suite: the added unit is a subordinate suite inside what remains fundamentally a single-family-scaled house -- a basement apartment, a "secondary suite"/"second suite"/"2nd unit"/"accessory dwelling unit", a converted attic or integral garage. One house plus one accessory unit, not a building of peer units.
+   - standard: everything else -- a true duplex/triplex/fourplex of peer units (new-built or converted), a laneway/garden suite, a larger multi-unit building, mixed use.
 
-2. construction_type -- what SCOPE of work does the description describe. This is independent of unit_form above: a basement suite can be added to a brand-new house just as easily as an old one, so do NOT let the word "basement" push you toward assuming this is an alteration to an existing building.
-   - new_construction_teardown: an existing building is demolished/razed AND a new building is constructed in its place.
-   - new_construction: a new building is constructed (new-build house/duplex/triplex/fourplex), no demolition mentioned or needed -- including when the description ALSO mentions a basement/secondary suite as one of the new building's units (e.g. "construct a new 2 storey SFD-detached dwelling" with a basement unit added by a later revision is still new_construction, not alteration).
-   - garden_suite: a new garden suite / laneway suite (a new small detached structure in a rear yard), including converting an existing garage into one.
-   - conversion: an EXISTING building's use is converted (e.g. "convert single family dwelling to duplex/triplex", "change of use") without demolition and without a specific addition or basement/secondary-suite framing.
-   - addition: an addition/extension to an EXISTING house (front/rear/side addition, second/third storey addition, extend) that also adds a unit.
-   - alteration: interior work inside an EXISTING structure that adds a unit, with no addition/extension and no broader conversion language -- this is the default reading for a plain basement/secondary suite proposal that gives no signal the building itself is new.
-   - severance: the permit is about severing/splitting a lot rather than a building conversion.
-   - unclear: the description doesn't give enough information to pick one of the above with any confidence (e.g. truncated text, revision notes with no real description, purely administrative language).
+2. construction_type -- WHERE do the new units come from? Pick exactly one:
+   - new_building: a whole new building is constructed, including demolishing something first and rebuilding. This WINS over where the new building's units happen to sit: "construct a new 3 storey dwelling with a secondary suite in the basement" is new_building, not basement_units, because the building itself is new. A vacant lot is a strong signal.
+   - laneway_garden_suite: a detached accessory dwelling in the rear yard -- "laneway suite", "garden suite", "rear yard suite" -- INCLUDING when it is made by converting or building above a detached garage ("convert existing garage into garden suite", "construct a garden suite above existing garage", "convert existing garage building into a laneway suite"). These are the map's most-often-mistaken permits: the City frequently codes the lot as "2 Unit - Detached" because the property ends up with two units, but the work is a back-yard accessory building, not a duplex. If the text says laneway/garden/rear-yard suite anywhere, this value wins over new_building.
+   - basement_units: one or more new dwelling units are created in the BASEMENT (or "cellar", "lower level", "below grade") of a building that is already standing. This applies REGARDLESS of what the building was before -- adding a basement unit to a single-family house and adding one to an existing triplex are both basement_units. Typical: "interior alterations to create 2 additional units in the basement of the existing SFD", "convert the existing triplex to a fourplex by adding an additional dwelling unit in the basement", "renovate the existing basement into two new secondary units", "convert basement storage to dwelling unit (4th unit)". Note that "construct"/"construct a secondary unit" is routinely used for this kind of work and does NOT make it new_building.
+   - aboveground_units: one or more new dwelling units are created ABOVE GRADE in a building that is already standing -- interior conversion of upper floors, a rear/side/second-storey addition that yields a unit, converting an INTEGRAL (attached, part of the house) garage into a unit, legalizing an existing above-grade unit. Use this when units are added to a standing building and the basement is not where they go.
+   - no_unit_change: the description describes work that creates NO new dwelling unit -- a deck, porch, roof, underpinning, garage rebuild, window changes, a rear addition or second-storey addition that just makes existing rooms bigger, general renovation with no unit language. Examples that ARE no_unit_change: "Proposal to underpin basement, construct a rear one storey addition, second floor addition, replace existing detached garage and a new rear deck"; "PROPOSED INTERIOR ALTERATIONS + 2 STOREY REAR AND SIDE ADDITION WITH BASEMENT"; "interior alterations on the first floor and basement, second floor addition, and rebuild roof at front porch. Unit 1, Unit 2, Unit 3" (naming the units being worked in is not creating units). Choose this ONLY when the text affirmatively describes the scope and no unit is created by it. Do not choose it merely because the text is short or vague.
+   - unclear: there isn't enough text to tell -- truncated fragments, bare revision notes ("REVISION 01", "Rev 02: revised deck plan"), purely administrative language. When you are torn between no_unit_change and unclear, choose unclear: no_unit_change removes the permit from the map, so it needs positive evidence.
 
 Rules:
-- unit_form and construction_type are independent -- classify each on its own merits. A permit can be new_construction with unit_form=basement_or_secondary_suite (a brand-new house built with a basement apartment from the start), or alteration with unit_form=basement_or_secondary_suite (a basement suite retrofitted into an old house). Both are common; the word "basement" alone does not tell you which.
-- The signal for new construction is language like "construct a new ... dwelling/house", "new construction", explicit demolition + rebuild, or a vacant lot. The signal for an EXISTING building is language that treats the house as already standing -- "existing", "add a unit to", or a basement/secondary suite proposal with no mention of building anything new.
-- If demolition AND new construction are both mentioned, use new_construction_teardown even if it also uses words like "duplex".
-- Garage-to-laneway-suite conversions (e.g. "second storey addition over an existing garage to create a laneway suite") are garden_suite -- the garage becomes a genuinely new, visibly different structure.
-- A front/rear addition to the MAIN house (not a garage) that also adds a unit is "addition", not new_construction -- the original building remains standing.
-- Descriptions are often truncated by the source data, contain typos, or use ALL CAPS -- classify based on whatever text is present; don't penalize for typos or truncation unless there's genuinely not enough information (then use unclear for construction_type).
+- The two axes are independent. A permit can be new_building with unit_form=basement_or_secondary_suite (a brand-new house built with a basement apartment) or basement_units with unit_form=basement_or_secondary_suite (that apartment retrofitted into an old house). The word "basement" alone does not tell you which -- look for whether a building is being BUILT.
+- Precedence when several apply: laneway_garden_suite > new_building > basement_units > aboveground_units.
+- Use WORK as strong evidence for scope. 'New Laneway / Rear Yard Suite' means laneway_garden_suite. 'Second Suite (New)', 'Interior Alterations' and 'Finishing Basements' mean the building already stands, so the answer is basement_units or aboveground_units, never new_building, no matter how much the description says "construct". 'New Building' means new_building unless the description clearly describes a rear-yard suite. 'Multiple Projects' and 'Other(SR)' carry no scope information -- judge those from the description alone.
+- CURRENT_USE and PROPOSED_USE describe the before and after state. "Vacant" as CURRENT_USE points to new_building. A PROPOSED_USE like "Sfd + Garden Suite" or "Sfd-Detached/Laneway Suite" points to laneway_garden_suite. Note these fields are often stale (identical before and after even when units were created), so treat them as supporting evidence, not proof.
+- Descriptions are frequently truncated, contain typos, or are in ALL CAPS. Classify from whatever text is present; don't penalize typos. Descriptions that stack revisions newest-first ("Revision 02 - ... Revision 01 - ... Proposal to ...") describe one permit's history: classify the overall scope of the permit, and where a revision explicitly supersedes the original scope, follow the revision.
 
 Classify every permit given to you. Return exactly one unit_form and one construction_type per permit_num."""
 
@@ -83,30 +104,42 @@ POPULATION_QUERY = """
 with permits as (
     select
         PERMIT_NUM as permit_num,
-        REVISION_NUM as revision_num,
         STRUCTURE_TYPE as structure_type,
+        WORK as work,
         STATUS as permit_status,
         DESCRIPTION as description,
+        CURRENT_USE as current_use,
         PROPOSED_USE as proposed_use,
         DWELLING_UNITS_CREATED as dwelling_units_created,
         'cleared' as source_status
     from raw_cleared_permits
     qualify row_number() over (
-        partition by PERMIT_NUM order by try_cast(REVISION_NUM as integer) desc
+        partition by PERMIT_NUM
+        order by
+            try_cast(REVISION_NUM as integer) desc nulls last,
+            case when DWELLING_UNITS_CREATED is null then 1 else 0 end,
+            case when STRUCTURE_TYPE is null then 1 else 0 end,
+            REVISION_NUM desc
     ) = 1
     union all
     select
         PERMIT_NUM as permit_num,
-        REVISION_NUM as revision_num,
         STRUCTURE_TYPE as structure_type,
+        WORK as work,
         STATUS as permit_status,
         DESCRIPTION as description,
+        CURRENT_USE as current_use,
         PROPOSED_USE as proposed_use,
         DWELLING_UNITS_CREATED as dwelling_units_created,
         'active' as source_status
     from raw_active_permits
     qualify row_number() over (
-        partition by PERMIT_NUM order by try_cast(REVISION_NUM as integer) desc
+        partition by PERMIT_NUM
+        order by
+            try_cast(REVISION_NUM as integer) desc nulls last,
+            case when DWELLING_UNITS_CREATED is null then 1 else 0 end,
+            case when STRUCTURE_TYPE is null then 1 else 0 end,
+            REVISION_NUM desc
     ) = 1
 ),
 filtered as (
@@ -116,9 +149,12 @@ filtered as (
         dwelling_units_created is not null
         and trim(dwelling_units_created) != ''
         and try_cast(dwelling_units_created as integer) > 0
-        and coalesce(structure_type, '') not like 'SFD%'
-        and lower(coalesce(proposed_use, '')) not like '%sfd%'
-        and lower(coalesce(proposed_use, '')) not like '%single%'
+        and (
+            coalesce(structure_type, '') not like 'SFD%'
+            or trim(coalesce(work, '')) in (
+                'Second Suite (New)', 'New Laneway / Rear Yard Suite'
+            )
+        )
         and trim(coalesce(structure_type, '')) not in (
             'Office', 'Hospital', 'Restaurant 30 Seats or Less', 'Home for the Aged',
             'Motel/Hotel', 'Place of Worship', 'Apartment Hotel'
@@ -135,9 +171,15 @@ filtered as (
             )
         )
 )
-select distinct permit_num, description
+-- One row per permit_num: the cache is keyed on permit_num alone, so a permit that
+-- appears in both the cleared and active sources must not produce two rows here (the
+-- second would overwrite the first and be re-classified on every run, forever).
+select permit_num, description, work, current_use, proposed_use
 from filtered
 where description is not null and trim(description) != ''
+qualify row_number() over (
+    partition by permit_num order by source_status
+) = 1
 """
 
 CLASSIFICATION_SCHEMA = {
@@ -183,11 +225,18 @@ def write_cache(cache: dict[str, dict]) -> None:
             writer.writerow({k: row.get(k, "") for k in SEED_FIELDNAMES})
 
 
-def classify_batch(client: anthropic.Anthropic, batch: list[tuple[str, str]]) -> dict[str, tuple[str, str]]:
-    numbered = "\n".join(
-        f"{i + 1}. permit_num={permit_num!r} description={description!r}"
-        for i, (permit_num, description) in enumerate(batch)
+def format_permit(index: int, row: tuple) -> str:
+    permit_num, description, work, current_use, proposed_use = row
+    return (
+        f"{index}. permit_num={permit_num!r}\n"
+        f"   WORK={work or '(none)'!r} "
+        f"CURRENT_USE={current_use or '(none)'!r} PROPOSED_USE={proposed_use or '(none)'!r}\n"
+        f"   DESCRIPTION={description!r}"
     )
+
+
+def classify_batch(client: anthropic.Anthropic, batch: list[tuple]) -> dict[str, tuple[str, str]]:
+    numbered = "\n".join(format_permit(i + 1, row) for i, row in enumerate(batch))
     response = client.messages.create(
         model=MODEL,
         max_tokens=4096,
@@ -217,9 +266,8 @@ def main() -> None:
 
     cache = load_cache()
     to_classify = [
-        (permit_num, description)
-        for permit_num, description in population
-        if cache.get(permit_num, {}).get("description_hash") != description_hash(description)
+        row for row in population
+        if cache.get(row[0], {}).get("description_hash") != description_hash(row[1])
     ]
 
     print(f"{len(population)} permits in scope, {len(to_classify)} need (re)classification.")
@@ -237,7 +285,8 @@ def main() -> None:
             print(f"Batch starting at {start} failed ({exc}); leaving these to the regex fallback.")
             failed += len(batch)
             continue
-        for permit_num, description in batch:
+        for row in batch:
+            permit_num, description = row[0], row[1]
             result = results.get(permit_num)
             if result is None or result[0] not in UNIT_FORMS or result[1] not in CONSTRUCTION_TYPES:
                 failed += 1
