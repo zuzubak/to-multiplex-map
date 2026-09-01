@@ -49,16 +49,6 @@
   background: var(--page-plane);
 }
 
-/* Map-only display switch, parked out of the toggle's way. */
-.map-layer-chip {
-  position: absolute;
-  z-index: 500;
-  top: 13px;
-  left: 176px;
-  background: var(--surface-1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
 .chart-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -345,7 +335,6 @@
      top half and its own bottom padding to clear the sheet. */
   #chart-view { padding: 58px 14px 46vh; }
   .view-toggle { top: 10px; left: 10px; }
-  .map-layer-chip { top: 11px; left: 168px; }
   .chart-card { padding: 14px 12px 12px; }
   .ward-list { max-height: 200px; }
 }

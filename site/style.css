@@ -133,6 +133,10 @@ html, body {
   border-top: 1px solid var(--border);
 }
 
+/* display:flex would otherwise beat the UA sheet's [hidden] { display: none }
+   on specificity, so a group hidden by JS would stay on screen. */
+.filter-group[hidden] { display: none; }
+
 .filter-group {
   display: flex;
   flex-wrap: wrap;

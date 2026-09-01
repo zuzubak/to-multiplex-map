@@ -49,8 +49,10 @@
     });
     document.getElementById("map-view").hidden = currentView !== "map";
     document.getElementById("chart-view").hidden = currentView !== "trends";
-    // The ward choropleth legend is map-only; the chart has its own legend.
+    // Ward shading is a map display option and its legend a map-only key; both
+    // are meaningless next to the chart, which carries its own legend.
     document.getElementById("map-legend").hidden = currentView !== "map";
+    document.getElementById("map-layers").hidden = currentView !== "map";
 
     if (currentView === "map") {
       MapView.show().catch(() => showLoadError(

@@ -110,7 +110,6 @@
 
       <div id="map-view">
         <div id="map"></div>
-        <button class="filter-chip map-layer-chip" id="layer-wards" data-active="true">Ward shading</button>
       </div>
 
       <div id="chart-view" hidden>
@@ -192,7 +191,15 @@
         <!-- Every chip, the ward checkboxes and the date slider are rendered by
              filters.js from its GROUPS table, so both views share one vocabulary
              and there is no second copy of this markup to drift. -->
-        <div class="filter-bar" id="filter-bar"></div>
+        <div class="filter-bar" id="filter-bar">
+          <!-- Map-only display switch, so it stays static here rather than coming
+               from filters.js (which renders only filters that apply to both
+               views). app.js hides it on the trend view. -->
+          <div class="filter-group" id="map-layers">
+            <span class="filter-group-label">Layers</span>
+            <button type="button" class="filter-chip" id="layer-wards" data-active="true">Ward shading</button>
+          </div>
+        </div>
 
         <div class="legend" id="map-legend">
           <div id="ward-legend-section">
