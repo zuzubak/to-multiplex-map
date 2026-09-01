@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Toronto Multiplex Tracker &mdash; Map of Gentle Density Permits</title>
-  <meta name="description" content="An interactive map of every new multiplex in Toronto: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Built from City of Toronto building permits and refreshed every day.">
+  <title>Toronto Multiplex Tracker &mdash; Map &amp; Trends for Gentle Density Permits</title>
+  <meta name="description" content="An interactive map and trend chart of every new multiplex in Toronto: duplexes, triplexes, fourplexes through six-plexes, laneway and garden suites, and secondary suites. Filter by ward, construction type and structure, and switch between the map and permits over time. Built from City of Toronto building permits and refreshed every day.">
   <link rel="canonical" href="https://malcolmkennedy.com/to-multiplex-map/">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Malcolm Kennedy">
   <meta property="og:url" content="https://malcolmkennedy.com/to-multiplex-map/">
-  <meta property="og:title" content="Toronto Multiplex Tracker &mdash; Map of Gentle Density Permits">
+  <meta property="og:title" content="Toronto Multiplex Tracker &mdash; Map &amp; Trends for Gentle Density Permits">
   <meta property="og:description" content="An interactive map of every new multiplex in Toronto: duplexes through six-plexes, laneway and garden suites, and secondary suites. Built from City of Toronto building permits and refreshed every day.">
   <meta property="og:image" content="https://malcolmkennedy.com/to-multiplex-map/og-image.png">
   <meta property="og:image:width" content="1872">
@@ -94,18 +94,76 @@
   }
   </script>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <!-- Leaflet's CSS is injected by map.js alongside its JS, on first open of the
+       map view, so a visitor who only opens the trend view never fetches either. -->
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="chart.css">
 </head>
 <body>
 <script src="/header.js"></script>
   <div class="app">
     <main id="map-pane">
-      <div id="map"></div>
+      <div class="view-toggle" role="tablist" aria-label="View">
+        <button type="button" role="tab" data-view="map" data-active="true" aria-selected="true">Map</button>
+        <button type="button" role="tab" data-view="trends" data-active="false" aria-selected="false">Trends</button>
+      </div>
+
+      <div id="map-view">
+        <div id="map"></div>
+        <button class="filter-chip map-layer-chip" id="layer-wards" data-active="true">Ward shading</button>
+      </div>
+
+      <div id="chart-view" hidden>
+        <div class="chart-toolbar">
+          <div class="filter-group">
+            <span class="filter-group-label">Measure</span>
+            <button type="button" class="filter-chip" data-active="true" data-group="measure" data-value="permits">Permit applications</button>
+            <button type="button" class="filter-chip" data-active="false" data-group="measure" data-value="units">Dwelling units</button>
+          </div>
+          <div class="filter-group">
+            <span class="filter-group-label">Group by</span>
+            <button type="button" class="filter-chip" data-active="true" data-group="grain" data-value="month">Month</button>
+            <button type="button" class="filter-chip" data-active="false" data-group="grain" data-value="quarter">Quarter</button>
+            <button type="button" class="filter-chip" data-active="false" data-group="grain" data-value="year">Year</button>
+          </div>
+          <div class="filter-group">
+            <span class="filter-group-label">Overlay</span>
+            <button type="button" class="filter-chip" id="toggle-average" data-active="true">12-month average</button>
+          </div>
+        </div>
+
+        <figure class="chart-card">
+          <figcaption class="chart-caption">
+            <span class="chart-title" id="chart-title">Permit applications by month</span>
+            <span class="chart-scope" id="chart-scope"></span>
+          </figcaption>
+          <div class="chart-frame" id="chart-frame">
+            <svg id="chart" role="img" aria-labelledby="chart-title" aria-describedby="chart-desc"></svg>
+            <p id="chart-desc" class="visually-hidden"></p>
+            <div class="chart-tooltip" id="chart-tooltip" hidden></div>
+            <p class="chart-empty" id="chart-empty" hidden>
+              No permits match these filters. Turn something back on to see a trend.
+            </p>
+          </div>
+          <div class="chart-legend" id="chart-legend"></div>
+          <p class="chart-note" id="chart-note"></p>
+        </figure>
+
+        <details class="table-view">
+          <summary>Show the numbers as a table</summary>
+          <div class="table-scroll">
+            <table id="data-table">
+              <caption id="table-caption"></caption>
+              <thead><tr><th scope="col">Period</th><th scope="col" id="table-measure-head">Applications</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
       <noscript>
         <p class="noscript-note">
-          This map needs JavaScript to draw. The underlying data is available
+          This page needs JavaScript to draw. The underlying data is available
           without it as
           <a href="data/permits.geojson">permits.geojson</a> and
           <a href="data/summary.json">summary.json</a>.
@@ -131,67 +189,12 @@
           <div class="stats" id="stats"></div>
         </header>
 
-        <div class="filter-bar">
-          <div class="filter-group">
-            <span class="filter-group-label">Layers</span>
-            <button class="filter-chip" id="layer-wards" data-active="true" data-group="layer">
-              Wards
-            </button>
-            <button class="filter-chip" id="layer-active" data-active="true" data-group="layer">
-              <span class="swatch" style="background: var(--series-active)"></span>
-              Active permits
-            </button>
-            <button class="filter-chip" id="layer-cleared" data-active="true" data-group="layer">
-              <span class="swatch" style="background: var(--series-cleared)"></span>
-              Cleared permits
-            </button>
-          </div>
+        <!-- Every chip, the ward checkboxes and the date slider are rendered by
+             filters.js from its GROUPS table, so both views share one vocabulary
+             and there is no second copy of this markup to drift. -->
+        <div class="filter-bar" id="filter-bar"></div>
 
-          <div class="filter-group">
-            <span class="filter-group-label">Street type</span>
-            <button class="filter-chip" data-active="true" data-group="road-class" data-value="major">Major</button>
-            <button class="filter-chip" data-active="true" data-group="road-class" data-value="minor">Minor</button>
-            <button class="filter-chip" data-active="true" data-group="road-class" data-value="unknown">Unknown</button>
-          </div>
-
-          <div class="filter-group">
-            <span class="filter-group-label">Construction type</span>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="new_building">New building</button>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="laneway_garden_suite">Laneway / garden suite</button>
-            <button class="filter-chip" data-active="false" data-group="scope" data-value="basement_units">New basement unit(s)</button>
-            <button class="filter-chip" data-active="true" data-group="scope" data-value="aboveground_units">New aboveground unit(s)</button>
-            <button class="filter-chip" data-active="false" data-group="scope" data-value="unclear">Unclear from description</button>
-          </div>
-
-          <div class="filter-group">
-            <span class="filter-group-label">Structure type</span>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Laneway / garden suite">Laneway / garden suite</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Duplex (2 units)">Duplex</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="House + secondary suite">House + secondary suite</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Triplex+ (3-6 units)">Triplex+</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-unit building">Multi-unit building</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Multi-tenant / rooming house">Multi-tenant / rooming house</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Mixed use">Mixed use</button>
-            <button class="filter-chip" data-active="true" data-group="structure" data-value="Other">Other</button>
-          </div>
-
-          <div class="date-filter">
-            <div class="filter-group-label">Application date</div>
-            <div class="histogram" id="histogram"></div>
-            <div class="range-slider" id="range-slider">
-              <div class="range-track"></div>
-              <div class="range-fill" id="range-fill"></div>
-              <input type="range" id="range-min" class="range-input">
-              <input type="range" id="range-max" class="range-input">
-            </div>
-            <div class="range-labels">
-              <span id="range-label-min"></span>
-              <span id="range-label-max"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="legend">
+        <div class="legend" id="map-legend">
           <div id="ward-legend-section">
             <h2>Units created by ward</h2>
             <div id="ward-bins"></div>
@@ -217,15 +220,23 @@
         </div>
 
         <section class="about">
-          <h2>About this map</h2>
+          <h2>About this tracker</h2>
 
           <p>
-            This is a map of every newly built or permitted multiplex in Toronto since
-            2022, refreshed daily from the City's Open Data. Each dot is one permit that
-            creates between one and six homes &mdash; a duplex, triplex,
+            This tracks every newly built or permitted multiplex in Toronto since
+            2022, refreshed daily from the City's Open Data. Each permit creates
+            between one and six homes &mdash; a duplex, triplex,
             fourplex, five- or six-plex, a laneway or garden suite, or a secondary
-            suite in an existing house. Wards are shaded by how many units
-            their permits add up to.
+            suite in an existing house.
+          </p>
+          <p>
+            <strong>Map</strong> shows where they are, one dot per permit, with wards
+            shaded by how many units their permits add up to.
+            <strong>Trends</strong> shows the same permits over time, by month, quarter
+            or year, counted either as applications or as the homes they create. Both
+            views read the same filters, so switching between them keeps whatever you
+            have narrowed down &mdash; and the address bar carries that slice, so a
+            link shares the exact view you are looking at.
           </p>
 
           <h3>What's included</h3>
@@ -301,10 +312,11 @@
     </aside>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="config.js"></script>
+  <script src="filters.js"></script>
+  <script src="chart.js"></script>
   <script src="map.js"></script>
+  <script src="app.js"></script>
 
   <!-- Pageview counts only (GoatCounter): no cookies, so no consent banner needed. -->
   <script data-goatcounter="https://zuzubak.goatcounter.com/count"

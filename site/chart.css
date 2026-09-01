@@ -1,0 +1,351 @@
+/* Chart view + view toggle. Tokens, .filter-chip, .filter-group, .stats, the
+   histogram and the range slider all come from style.css -- this file only adds
+   what the chart itself needs, so the two views cannot drift apart visually. */
+
+/* The toggle floats over the map, so it reads as a control on the view rather
+   than a page-level nav, and it stays put when the view swaps underneath it. */
+.view-toggle {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.view-toggle button {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.view-toggle button[data-active="true"] {
+  background: var(--text-primary);
+  color: var(--surface-1);
+}
+
+#map-view, #chart-view {
+  position: absolute;
+  inset: 0;
+}
+
+#map-view[hidden], #chart-view[hidden] { display: none; }
+
+/* The map fills its pane; the chart scrolls, and clears the floating toggle. */
+#chart-view {
+  overflow-y: auto;
+  padding: 62px 28px 40px;
+  background: var(--page-plane);
+}
+
+/* Map-only display switch, parked out of the toggle's way. */
+.map-layer-chip {
+  position: absolute;
+  z-index: 500;
+  top: 13px;
+  left: 176px;
+  background: var(--surface-1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-bottom: 18px;
+}
+
+.chart-card {
+  margin: 0;
+  padding: 18px 20px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.chart-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chart-scope {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* The frame sizes to the plot PLUS the x-axis band, so axis labels never get
+   cropped into a nested scrollbar. */
+.chart-frame {
+  position: relative;
+  width: 100%;
+}
+
+#chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: var(--seq-200);   /* the hatch pattern paints with currentColor */
+}
+
+/* The class sets display:flex, which would otherwise beat the UA sheet's
+   [hidden] { display: none } on specificity and leave the message always on. */
+.chart-empty[hidden] { display: none; }
+
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---- Chart marks --------------------------------------------------------- */
+
+.grid-line { stroke: var(--gridline); stroke-width: 1; shape-rendering: crispEdges; }
+.axis-line { stroke: var(--gridline); stroke-width: 1; shape-rendering: crispEdges; }
+.axis-text { fill: var(--text-muted); font-size: 11px; }
+.axis-text.year { fill: var(--text-secondary); font-size: 12px; }
+
+.bar { fill: var(--seq-200); }
+.bar.is-hovered { fill: var(--seq-350); }
+/* A period the extract only partly covers: outlined, not filled, so a short
+   final bar never reads as a real drop. */
+.bar.is-partial { fill: url(#hatch); stroke: var(--seq-200); stroke-width: 1; }
+
+.avg-line {
+  fill: none;
+  stroke: var(--seq-700);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.avg-dot { fill: var(--seq-700); stroke: var(--surface-1); stroke-width: 2; }
+.hover-rule { stroke: var(--text-muted); stroke-width: 1; stroke-opacity: 0.5; }
+.hit-area { fill: transparent; }
+
+/* Dark is stepped for the dark surface, not flipped: bars move down the same
+   blue ramp and the average line moves up it, so the line still reads as the
+   emphasis mark against the bars rather than merging into them. */
+@media (prefers-color-scheme: dark) {
+  .bar { fill: var(--seq-550); }
+  .bar.is-hovered { fill: var(--seq-450); }
+  .bar.is-partial { stroke: var(--seq-550); }
+  .avg-line { stroke: var(--seq-200); }
+  .avg-dot { fill: var(--seq-200); stroke: var(--surface-1); }
+}
+
+/* ---- Tooltip ------------------------------------------------------------- */
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 150px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.chart-tooltip .tt-period {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.chart-tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.chart-tooltip .tt-row + .tt-row { margin-top: 2px; }
+.chart-tooltip .tt-key { flex: 1 1 auto; }
+.chart-tooltip .tt-val { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.chart-tooltip .tt-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.chart-tooltip .tt-note { display: block; margin-top: 4px; color: var(--text-muted); }
+
+/* ---- Legend & notes ------------------------------------------------------ */
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-legend .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.chart-legend .legend-swatch { width: 12px; height: 10px; border-radius: 2px; flex: none; }
+.chart-legend .legend-swatch.line { height: 2px; border-radius: 2px; }
+
+.chart-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ---- Table view ---------------------------------------------------------- */
+
+.table-view { margin-top: 18px; }
+
+.table-view summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.table-scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+
+#data-table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 260px;
+}
+
+#data-table caption {
+  text-align: left;
+  padding: 6px 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#data-table th, #data-table td {
+  text-align: right;
+  padding: 5px 16px 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+#data-table th:first-child, #data-table td:first-child { text-align: left; }
+
+#data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--page-plane);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+#data-table td { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+
+/* ---- Ward checkboxes ------------------------------------------------------ */
+
+.ward-filter { align-self: stretch; width: 100%; }
+
+.ward-filter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ward-actions { display: inline-flex; gap: 10px; }
+
+/* A disabled chip must not read as an active one -- the average overlay has no
+   meaning at year grain, so its control goes quiet rather than lying. */
+.filter-chip:disabled { opacity: 0.35; cursor: default; }
+
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-btn:hover { color: var(--text-primary); }
+
+.ward-list {
+  max-height: 232px;
+  overflow-y: auto;
+  padding-right: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ward-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ward-row:hover { background: var(--page-plane); color: var(--text-primary); }
+.ward-row input { accent-color: var(--series-cleared); margin: 0; flex: none; }
+.ward-row .ward-name { flex: 1 1 auto; }
+
+.ward-row .ward-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.filter-footnote {
+  margin: 18px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Narrow viewports ---------------------------------------------------- */
+
+@media (max-width: 860px) {
+  /* The bottom sheet covers the lower half of the pane, so the chart gets the
+     top half and its own bottom padding to clear the sheet. */
+  #chart-view { padding: 58px 14px 46vh; }
+  .view-toggle { top: 10px; left: 10px; }
+  .map-layer-chip { top: 11px; left: 168px; }
+  .chart-card { padding: 14px 12px 12px; }
+  .ward-list { max-height: 200px; }
+}
