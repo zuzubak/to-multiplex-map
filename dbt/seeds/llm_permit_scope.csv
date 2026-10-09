@@ -6,7 +6,7 @@ permit_num,description_hash,construction_type,unit_form,model
 05 134684 BLD,6a5711f430f2d8db2b349db061f31df0,aboveground_units,standard,claude-haiku-4-5
 11 196575 BLD,5a71a3a41df76e7a6faab80c05b2619a,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 11 240886 BLD,ae68508b5fd2f843c1400cb17aaecb48,new_building,standard,claude-haiku-4-5
-12 108807 BLD,2a9538bab9350f02a320416147536e48,no_unit_change,standard,claude-haiku-4-5
+12 108807 BLD,7bf10b7a84ccb9449814e434912fa80c,no_unit_change,standard,claude-haiku-4-5
 13 147585 BLD,b20ef7a000bfb786e86e4a73b5b06add,new_building,standard,claude-haiku-4-5
 14 122755 BLD,f5c18009026aeb7799e80f5333b5858e,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 15 210017 BLD,ebf7e6ad5955761f4a36cd27930295e0,basement_units,basement_or_secondary_suite,claude-haiku-4-5
@@ -3151,7 +3151,7 @@ permit_num,description_hash,construction_type,unit_form,model
 24 223478 BLD,c4e41aa649c09e25df03ee0f16070009,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 24 223545 BLD,3af6a91a9fd7de19229f5c17c42970ce,laneway_garden_suite,standard,claude-haiku-4-5
 24 223630 BLD,3c8f29a71acf0b439f21cc8d7cfa14b9,basement_units,basement_or_secondary_suite,claude-haiku-4-5
-24 223638 BLD,89f0719c709e70b0c8dce5d55e192542,new_building,standard,claude-haiku-4-5
+24 223638 BLD,b2562d3de2d641f6bc6478ccc0755db5,new_building,standard,claude-haiku-4-5
 24 223721 BLD,5d5cd8afcf95dff7220dc7230d3e123a,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 24 223834 BLD,8faf85e0c79f733c7eac8e5aa65cd250,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
 24 223844 BLD,1fd1b5edb38819dc244272225ef0e77f,laneway_garden_suite,standard,claude-haiku-4-5
@@ -5472,7 +5472,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 112563 BLD,58fe5fd2f098af6f6747a43e5b73ef51,aboveground_units,standard,claude-haiku-4-5
 26 112592 BLD,cf285621e27243dc0e68c91bfae861ac,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 112648 BLD,abd465f891212ff5dce4c96b696205ed,basement_units,basement_or_secondary_suite,claude-haiku-4-5
-26 112880 BLD,b94e96f2547ee1b869b91777305cdc36,aboveground_units,standard,claude-haiku-4-5
+26 112880 BLD,bd0ce196980cf7e1a1ca635132dd3b98,aboveground_units,standard,claude-haiku-4-5
 26 112945 BLD,313156a414c480843800d7af89c79d6a,laneway_garden_suite,standard,claude-haiku-4-5
 26 112958 BLD,02f1ed883bbeadf1bc8f14fee17b6a68,basement_units,standard,claude-haiku-4-5
 26 113142 BLD,2fe85561c3c40dd57069cd377bde3568,basement_units,basement_or_secondary_suite,claude-haiku-4-5
@@ -6386,7 +6386,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 199543 BLD,16e6fe75d37bd8065a9406eeac26fa76,laneway_garden_suite,standard,claude-haiku-4-5
 26 199544 BLD,fe952b3f9c1653197bc02fd5ea66eda3,new_building,standard,claude-haiku-4-5
 26 199588 BLD,e9a62c8fee7985be78f1565d135e8111,basement_units,basement_or_secondary_suite,claude-haiku-4-5
-26 199634 BLD,212e331ff0ae84215a2d92b3ef639030,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
+26 199634 BLD,5ae9e0644e3ea900ca8716aabbd9dacd,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
 26 199665 BLD,6651b81cb094042ada48faa1b09c0dcb,new_building,standard,claude-haiku-4-5
 26 200023 BLD,b14a2018e4cb56c6b50a51e8f20fa3f0,laneway_garden_suite,standard,claude-haiku-4-5
 26 200037 BLD,182ee926be5ba87299a7ad4005ed2674,basement_units,basement_or_secondary_suite,claude-haiku-4-5
@@ -6459,6 +6459,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 207243 BLD,08a0a5b204910da66ae5fae480613505,aboveground_units,standard,claude-haiku-4-5
 26 207273 BLD,a0678aa2de905a10f1bed4b2421a2465,laneway_garden_suite,standard,claude-haiku-4-5
 26 207383 BLD,abde790f3653fb3c1d27c5d1793a2468,laneway_garden_suite,standard,claude-haiku-4-5
+26 207513 BLD,781096936a49d9154fc63495835105b1,new_building,standard,claude-haiku-4-5
 26 207683 BLD,f163141ed125078700de6c891278265a,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 207740 BLD,1dc49734cdd5de51ded51187ab54b06b,aboveground_units,standard,claude-haiku-4-5
 26 207952 BLD,51f0cdc0c2fc6b3b1141a74c636a1a27,aboveground_units,standard,claude-haiku-4-5
@@ -6500,7 +6501,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 211521 BLD,0dd672cabf1204754af2ad4d17073896,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 211614 BLD,198fae3184cb5410f89f8f6c0525f9ac,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 211728 BLD,c1783e9772d58b56e90acb02bca29280,aboveground_units,standard,claude-haiku-4-5
-26 211825 BLD,78c2b66a0ab6a4e4777b6645e6a5d124,no_unit_change,basement_or_secondary_suite,claude-haiku-4-5
+26 211825 BLD,9b686302010125d4c4c84f53550be680,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 211842 BLD,697e1e197b80772f6c8a124d93e76d1e,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 211974 BLD,b17c26d54ab627b0f7b3913a540e0e69,new_building,standard,claude-haiku-4-5
 26 212035 BLD,432d3e9f1051cf320e42d9cb088f7a18,basement_units,basement_or_secondary_suite,claude-haiku-4-5
@@ -6644,6 +6645,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 221834 BLD,f8280e33b5bb34420ef01a8e3acab7ba,new_building,standard,claude-haiku-4-5
 26 221897 BLD,f3a8c27042d847c1a094f3c341f1ea4c,laneway_garden_suite,standard,claude-haiku-4-5
 26 221977 BLD,fa9f4118472233a2a70a865ee1eb52dc,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
+26 221980 BLD,457ffe2ad5146a6cfba43002f74d43e8,no_unit_change,standard,claude-haiku-4-5
 26 222026 BLD,33fe0ce4d278483d21e37b1d2981abee,laneway_garden_suite,standard,claude-haiku-4-5
 26 222215 BLD,801b71e304187c8e96a308e65d90c4a8,laneway_garden_suite,standard,claude-haiku-4-5
 26 222330 BLD,97d416f3a3b483da72d75d9c825c534a,basement_units,basement_or_secondary_suite,claude-haiku-4-5
@@ -6861,7 +6863,7 @@ permit_num,description_hash,construction_type,unit_form,model
 26 240773 BLD,64df32acda6e589bb36b9f3e74a13d2a,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 240806 BLD,a1551c6a0d982bb2ba60667277831f6f,new_building,standard,claude-haiku-4-5
 26 240813 BLD,cd622e351d3598c1f44f33fc3fdf1a57,unclear,standard,claude-haiku-4-5
-26 240833 BLD,2b85b9dac972215ca1be2c71592cd689,basement_units,basement_or_secondary_suite,claude-haiku-4-5
+26 240833 BLD,81b75a59f6fe8a06b9ab46274b979114,basement_units,basement_or_secondary_suite,claude-haiku-4-5
 26 240842 BLD,62eaf57b3391d406388ab6f99e22d374,new_building,standard,claude-haiku-4-5
 26 240915 BLD,62eaf57b3391d406388ab6f99e22d374,new_building,standard,claude-haiku-4-5
 26 240937 BLD,68265ba155db37a1d7491a26f2c3d7fe,aboveground_units,standard,claude-haiku-4-5
@@ -6994,3 +6996,19 @@ permit_num,description_hash,construction_type,unit_form,model
 26 250119 BLD,930936965bb8f97734467e4293197f6d,laneway_garden_suite,standard,claude-haiku-4-5
 26 250303 BLD,6c2c36a8f3059325a6941c2e0fe53339,no_unit_change,standard,claude-haiku-4-5
 26 250599 BLD,48a0d767b4d402eb969a90f722038239,laneway_garden_suite,standard,claude-haiku-4-5
+26 250770 BLD,9aafafebc39ddd7b2785a70b2d25b982,basement_units,basement_or_secondary_suite,claude-haiku-4-5
+26 250775 BLD,a1a6ab4a89396ed02a93ef74da1eb924,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
+26 250779 BLD,d194881ff0b277be895d1a87eaa7509d,new_building,standard,claude-haiku-4-5
+26 250794 BLD,84068589cf23ffd52046e1eebed43481,laneway_garden_suite,standard,claude-haiku-4-5
+26 250817 BLD,60e3beee1396e97c1cffcb82b798ed79,laneway_garden_suite,standard,claude-haiku-4-5
+26 250836 BLD,633983c01b5305cb70d0da24bf423d0e,laneway_garden_suite,standard,claude-haiku-4-5
+26 250870 BLD,2c96e7a2a5003a4d9dbec418ffeb0c34,laneway_garden_suite,standard,claude-haiku-4-5
+26 250876 BLD,67cb56c05e56931bcc4f3d66a85cd667,no_unit_change,standard,claude-haiku-4-5
+26 250935 BLD,e7fa979739c983fae9c0dd98e33305d4,aboveground_units,basement_or_secondary_suite,claude-haiku-4-5
+26 250976 BLD,91d90e9e00f4c889e9c23e100b439f82,basement_units,basement_or_secondary_suite,claude-haiku-4-5
+26 250985 BLD,8bcbaf34ae19c8e5ea212e5d023b6f0b,basement_units,basement_or_secondary_suite,claude-haiku-4-5
+26 251028 BLD,df812e4cb28027c8fcbd83f1160d8bb7,laneway_garden_suite,standard,claude-haiku-4-5
+26 251162 BLD,a09fa010430be608538b9eaf2c0fdc7a,new_building,standard,claude-haiku-4-5
+26 251184 BLD,7d9b1c17c9e7114f5fcdbfea72354afe,laneway_garden_suite,standard,claude-haiku-4-5
+26 251212 BLD,b7063069e23f3fb64a3d3456aa98de3e,basement_units,basement_or_secondary_suite,claude-haiku-4-5
+26 251281 BLD,eb13c389452b8eb1a65a453a0ce6f6a7,aboveground_units,standard,claude-haiku-4-5
