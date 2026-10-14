@@ -587,3 +587,12 @@ html, body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
+
+/* Address search. The view toggle sits top-left and the zoom control top-right,
+   so this tucks in under the toggle. It lives inside #map-view, so it disappears
+   with the map when the trends view is showing. Widget styling is shared, from
+   /map-search.js. */
+.map-search {
+  position: absolute; z-index: 600;
+  top: 56px; left: 12px; width: 250px; max-width: calc(100% - 24px);
+}

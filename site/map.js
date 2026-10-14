@@ -363,6 +363,24 @@
     });
     L.tileLayer(tileUrl, { subdomains: "abcd", maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
     L.control.zoom({ position: "topright" }).addTo(map);
+
+    // Address search, from the shared widget on the site root. It returns a point and
+    // leaves the map handling to us, since the three maps here use two different libraries.
+    if (window.MapSearch) {
+      let found = null;
+      MapSearch.mount({
+        container: "#search",
+        placeholder: "Search an address",
+        onSelect: (r) => {
+          if (found) map.removeLayer(found);
+          found = L.circleMarker([r.lat, r.lon], {
+            radius: 9, color: "#d1495b", weight: 3, fillColor: "#d1495b", fillOpacity: 0.25,
+          }).addTo(map);
+          map.setView([r.lat, r.lon], Math.max(map.getZoom(), 17));
+        },
+        onClear: () => { if (found) { map.removeLayer(found); found = null; } },
+      });
+    }
     map.on("zoomend moveend", () => requestAnimationFrame(refreshClusterColors));
 
     wardsLayer = L.geoJSON(wardsData, {
