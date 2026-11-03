@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-11-02T20:38:52+00:00",
+  "last_updated": "2026-11-03T18:14:27+00:00",
   "totals_by_status": [
     {
       "status": "cleared",
@@ -12,7 +12,7 @@
       "units_created": 6000
     }
   ],
-  "unmatched_address_count": 47,
+  "unmatched_address_count": 49,
   "earliest_application_date": "2022-01-01",
   "latest_application_date": "2026-10-30"
 }
