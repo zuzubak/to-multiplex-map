@@ -1,18 +1,18 @@
 {
-  "last_updated": "2026-11-07T16:45:09+00:00",
+  "last_updated": "2026-11-08T16:56:09+00:00",
   "totals_by_status": [
     {
       "status": "cleared",
-      "permit_count": 2740,
-      "units_created": 3262
+      "permit_count": 2746,
+      "units_created": 3269
     },
     {
       "status": "active",
-      "permit_count": 3760,
-      "units_created": 5990
+      "permit_count": 3753,
+      "units_created": 5977
     }
   ],
   "unmatched_address_count": 50,
   "earliest_application_date": "2022-01-01",
-  "latest_application_date": "2026-11-05"
+  "latest_application_date": "2026-11-06"
 }
